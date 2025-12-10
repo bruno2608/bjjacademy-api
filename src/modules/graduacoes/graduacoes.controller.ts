@@ -1,0 +1,30 @@
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../../common/enums/user-role.enum';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { CreateGraduacaoDto } from './dtos/create-graduacao.dto';
+import { GraduacaoDto } from './dtos/graduacao.dto';
+import { GraduacoesService } from './graduacoes.service';
+
+@ApiTags('Graduacoes')
+@ApiBearerAuth('JWT')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('graduacoes')
+export class GraduacoesController {
+  constructor(private readonly graduacoesService: GraduacoesService) {}
+
+  @Post()
+  @Roles(UserRole.PROFESSOR, UserRole.ADMIN, UserRole.TI)
+  @ApiOperation({ summary: 'Registra uma graduação' })
+  @ApiCreatedResponse({ type: GraduacaoDto })
+  async criar(@Body() dto: CreateGraduacaoDto): Promise<GraduacaoDto> {
+    return this.graduacoesService.criar(dto);
+  }
+}
