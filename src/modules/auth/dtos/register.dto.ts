@@ -1,10 +1,26 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsOptional,
+  IsString,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 
 export class RegisterDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Nome completo do usuario' })
+  @ValidateIf((dto) => !dto.nome)
   @IsString()
-  nome: string;
+  nomeCompleto: string;
+
+  @ApiPropertyOptional({
+    description: 'Alias legado para nome completo',
+  })
+  @ValidateIf((dto) => !dto.nomeCompleto)
+  @IsOptional()
+  @IsString()
+  nome?: string;
 
   @ApiProperty()
   @IsEmail()
@@ -15,10 +31,15 @@ export class RegisterDto {
   @MinLength(6)
   senha: string;
 
-  @ApiPropertyOptional({
-    description: 'Código de convite no formato BJJ-XXXXXX',
+  @ApiProperty({
+    description: 'Codigo de convite no formato BJJ-XXXXXX',
   })
-  @IsOptional()
   @IsString()
-  codigoConvite?: string;
+  codigoConvite: string;
+
+  @ApiProperty({
+    description: 'Confirma que o usuario aceitou os termos',
+  })
+  @IsBoolean()
+  aceitouTermos: boolean;
 }
