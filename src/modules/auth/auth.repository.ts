@@ -15,6 +15,21 @@ type UserWithRolesAndAcademias = {
   academia_nome: string;
 };
 
+export type UserProfileRow = {
+  usuario_id: string;
+  email: string;
+  nome_completo: string;
+  usuario_status: string;
+  faixa_atual_slug: string | null;
+  grau_atual: number | null;
+  papel: UserRole;
+  matricula_status: string | null;
+  matricula_data_inicio: string | null;
+  matricula_data_fim: string | null;
+  academia_id: string;
+  academia_nome: string;
+};
+
 @Injectable()
 export class AuthRepository {
   constructor(private readonly databaseService: DatabaseService) {}
@@ -69,6 +84,42 @@ export class AuthRepository {
 
     return this.databaseService.query<UserWithRolesAndAcademias>(query, [
       email,
+    ]);
+  }
+
+  async findUserProfileByIdAndAcademia(
+    usuarioId: string,
+    academiaId: string,
+  ): Promise<UserProfileRow[]> {
+    const query = `
+      select
+        u.id as usuario_id,
+        u.email,
+        u.nome_completo,
+        u.status as usuario_status,
+        u.faixa_atual_slug,
+        u.grau_atual,
+        up.papel,
+        m.status as matricula_status,
+        m.data_inicio as matricula_data_inicio,
+        m.data_fim as matricula_data_fim,
+        a.id as academia_id,
+        a.nome as academia_nome
+      from usuarios u
+      join usuarios_papeis up
+        on up.usuario_id = u.id
+      join academias a
+        on a.id = up.academia_id
+      left join matriculas m
+        on m.usuario_id = u.id
+       and m.academia_id = a.id
+      where u.id = $1
+        and a.id = $2;
+    `;
+
+    return this.databaseService.query<UserProfileRow>(query, [
+      usuarioId,
+      academiaId,
     ]);
   }
 

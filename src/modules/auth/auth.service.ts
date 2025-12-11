@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '../../common/enums/user-role.enum';
-import { AuthRepository } from './auth.repository';
+import { AuthRepository, UserProfileRow } from './auth.repository';
 import { AuthTokensDto } from './dtos/auth-tokens.dto';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { InviteValidationDto } from './dtos/invite-validation.dto';
@@ -15,6 +15,7 @@ import { LoginDto } from './dtos/login.dto';
 import { RefreshTokenDto } from './dtos/refresh-token.dto';
 import { RegisterDto } from './dtos/register.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
+import { MeResponseDto } from './dtos/me-response.dto';
 
 type UserWithRole = {
   usuario_id: string;
@@ -27,6 +28,13 @@ type UserWithRole = {
   papel: UserRole;
   academia_id: string;
   academia_nome: string;
+};
+
+type CurrentUser = {
+  id: string;
+  email: string;
+  role: UserRole;
+  academiaId: string;
 };
 
 @Injectable()
@@ -74,6 +82,39 @@ export class AuthService {
         role: payload.role,
         academiaId: payload.academiaId,
       },
+    };
+  }
+
+  async me(currentUser: CurrentUser): Promise<MeResponseDto> {
+    const rows = await this.authRepository.findUserProfileByIdAndAcademia(
+      currentUser.id,
+      currentUser.academiaId,
+    );
+
+    if (!rows.length) {
+      throw new NotFoundException('Usuario nao encontrado');
+    }
+
+    const primary = this.pickPrimaryRole<UserProfileRow>(rows);
+    const role = ((primary.papel as string) ?? UserRole.ALUNO).toUpperCase() as UserRole;
+
+    // TODO: bloquear usuarios com status diferente de ACTIVE quando login/refresh forem ajustados
+    if (primary.usuario_status !== 'ACTIVE') {
+      // no-op por enquanto; endpoint ainda retorna os dados
+    }
+
+    return {
+      id: primary.usuario_id,
+      nome: primary.nome_completo,
+      email: primary.email,
+      role,
+      academiaId: primary.academia_id,
+      academiaNome: primary.academia_nome,
+      faixaAtual: primary.faixa_atual_slug,
+      grauAtual: primary.grau_atual,
+      matriculaStatus: primary.matricula_status,
+      matriculaDataInicio: primary.matricula_data_inicio,
+      matriculaDataFim: primary.matricula_data_fim,
     };
   }
 
@@ -201,7 +242,9 @@ export class AuthService {
     // TODO: validar token de recuperacao e atualizar senha (spec 3.1.6)
   }
 
-  private pickPrimaryRole(rows: UserWithRole[]): UserWithRole {
+  private pickPrimaryRole<T extends { papel: UserRole | string }>(
+    rows: T[],
+  ): T {
     const priority: Record<UserRole, number> = {
       [UserRole.TI]: 1,
       [UserRole.ADMIN]: 2,
@@ -224,6 +267,6 @@ export class AuthService {
     return {
       ...primary,
       papel: ((primary.papel as string) ?? UserRole.ALUNO).toUpperCase() as UserRole,
-    };
+    } as T;
   }
 }

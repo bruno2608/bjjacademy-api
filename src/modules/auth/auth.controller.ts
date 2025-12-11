@@ -1,14 +1,19 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { UserRole } from '../../common/enums/user-role.enum';
+import { CurrentUser } from '../../common/decorators/user.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AuthTokensDto } from './dtos/auth-tokens.dto';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { InviteValidationDto } from './dtos/invite-validation.dto';
 import { LoginDto } from './dtos/login.dto';
+import { MeResponseDto } from './dtos/me-response.dto';
 import { RefreshTokenDto } from './dtos/refresh-token.dto';
 import { RegisterDto } from './dtos/register.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
@@ -26,8 +31,20 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Retorna dados do usuario autenticado' })
+  @ApiOkResponse({ type: MeResponseDto })
+  async me(
+    @CurrentUser()
+    user: { id: string; email: string; role: UserRole; academiaId: string },
+  ): Promise<MeResponseDto> {
+    return this.authService.me(user);
+  }
+
   @Get('convite/:codigo')
-  @ApiOperation({ summary: 'Valida código de convite' })
+  @ApiOperation({ summary: 'Valida codigo de convite' })
   @ApiOkResponse({ type: InviteValidationDto })
   async validarConvite(
     @Param('codigo') codigo: string,
@@ -50,7 +67,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
-  @ApiOperation({ summary: 'Inicia recuperação de senha' })
+  @ApiOperation({ summary: 'Inicia recuperacao de senha' })
   @ApiOkResponse({ schema: { example: { message: 'Token enviado' } } })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
