@@ -7,5 +7,6 @@ import { AulasService } from './aulas.service';
   imports: [DatabaseModule],
   controllers: [AulasController],
   providers: [AulasService],
+  exports: [AulasService],
 })
 export class AulasModule {}

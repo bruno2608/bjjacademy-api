@@ -8,5 +8,6 @@ import { PresencasService } from './presencas.service';
   imports: [DatabaseModule],
   controllers: [PresencasController, AlunoPresencasController],
   providers: [PresencasService],
+  exports: [PresencasService],
 })
 export class PresencasModule {}

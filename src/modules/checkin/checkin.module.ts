@@ -7,5 +7,6 @@ import { CheckinService } from './checkin.service';
   imports: [DatabaseModule],
   controllers: [CheckinController],
   providers: [CheckinService],
+  exports: [CheckinService],
 })
 export class CheckinModule {}

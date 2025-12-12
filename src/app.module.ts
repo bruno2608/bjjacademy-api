@@ -11,6 +11,7 @@ import { InvitesModule } from './modules/invites/invites.module';
 import { PresencasModule } from './modules/presencas/presencas.module';
 import { AlunosModule } from './modules/alunos/alunos.module';
 import { TurmasModule } from './modules/turmas/turmas.module';
+import { HomeModule } from './modules/home/home.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { TurmasModule } from './modules/turmas/turmas.module';
     AulasModule,
     AppConfigModule,
     InvitesModule,
+    HomeModule,
   ],
 })
 export class AppModule {}

@@ -19,6 +19,7 @@ Documento de referencia rapida da API v1 do ecossistema **BJJAcademy / BJJAcadem
 - **Autenticacao**: Bearer JWT no header `Authorization: Bearer <token>`.
 - **Swagger/Authorize**: em `/v1/docs`, clique em **Authorize** (esquema `JWT`) e cole apenas o `accessToken` (sem `Bearer`); o Swagger prefixa o header e so envia para rotas anotadas com `@ApiBearerAuth('JWT')` (via `@ApiAuth()`). A opcao `persistAuthorization: true` mantem o token apos refresh da pagina.
 - **Multi-tenant**: todas as consultas devem ser filtradas pelo `academiaId` presente no JWT (dashboards, presencas, regras, etc.).
+- **Home vs Dashboard**: `GET /v1/home` e a tela agregada (modo padrao STAFF se houver papel staff; senao ALUNO; aceita `?mode=aluno|staff` respeitando `roles`). Dashboards dedicados permanecem em `/v1/dashboard/aluno` e `/v1/dashboard/staff`.
 - **Timezone (\"hoje\")**: o backend calcula a janela [startUtc, endUtc) usando `APP_TIMEZONE` (padrao `America/Sao_Paulo`) via SQL `date_trunc`. Endpoints que usam isso: `GET /v1/aulas/hoje` e contadores de `GET /v1/dashboard/staff`. Futuro: ler timezone por academia.
 - **Claims do JWT** (emitido no login):
   - `sub`: id do usuario (`usuarios.id`)
@@ -160,7 +161,37 @@ curl http://localhost:3000/v1/auth/me \
 - `POST /auth/forgot-password` - inicia fluxo de recuperacao (stub).
 - `POST /auth/reset-password` - redefine senha com token (stub).
 
-### 3.2 Dashboards
+### 3.2 Dashboards & Home
+
+#### 3.2.0 GET `/home`
+
+- **Descricao**: home agregada. Modo padrao: `STAFF` se o token tiver algum papel staff (`PROFESSOR`/`INSTRUTOR`/`ADMIN`/`TI`), senao `ALUNO`. Override opcional via `?mode=aluno|staff` respeitando `roles` do token.
+- **Auth/Roles**: qualquer usuario autenticado com o papel solicitado (`mode=staff` requer papel staff; `mode=aluno` requer ALUNO em `roles`).
+- **Retorna**:
+  - `mode`: `ALUNO` ou `STAFF`
+  - `me`: igual ao `/auth/me` (inclui `role` e `roles`)
+  - `aluno`: dashboard do aluno + `checkinDisponiveis`, `ultimasPresencas` (10) e `historicoGraduacoes` (10) — presente apenas quando `mode=ALUNO`
+  - `staff`: dashboard staff + `aulasHoje` e pendencias (`total` + itens) — presente apenas quando `mode=STAFF`
+- **Exemplos (curl)**:
+  ```bash
+  # aluno (modo default aluno)
+  ACCESS_TOKEN="<token-aluno>"
+  curl http://localhost:3000/v1/home \
+    -H "Authorization: Bearer $ACCESS_TOKEN"
+
+  # staff (modo default staff)
+  ACCESS_TOKEN="<token-professor>"
+  curl http://localhost:3000/v1/home \
+    -H "Authorization: Bearer $ACCESS_TOKEN"
+
+  # staff enxergando modo aluno (precisa ALUNO em roles)
+  curl "http://localhost:3000/v1/home?mode=aluno" \
+    -H "Authorization: Bearer $ACCESS_TOKEN"
+
+  # aluno sem papel staff tentando modo=staff (esperado 403)
+  curl "http://localhost:3000/v1/home?mode=staff" \
+    -H "Authorization: Bearer $ACCESS_TOKEN"
+  ```
 
 #### 3.2.1 GET `/dashboard/aluno` (real)
 

@@ -78,6 +78,31 @@ curl http://localhost:3000/v1/checkin/disponiveis \
   -H "Authorization: Bearer $PROF_TOKEN"
 ```
 
+## Home vs Dashboard
+- **Home (`/v1/home`)**: tela inicial agregada. Modo padrao = `STAFF` se o token tiver algum papel staff (PROFESSOR/INSTRUTOR/ADMIN/TI); senao `ALUNO`. Aceita override `?mode=aluno|staff` respeitando os papeis em `roles`.
+- **Dashboard (`/v1/dashboard/aluno`, `/v1/dashboard/staff`)**: KPIs/analytics dedicados, sem agregacao adicional.
+
+Exemplos:
+```bash
+# ALUNO (modo default aluno - sem query)
+ACCESS_TOKEN="<token-aluno>"
+curl http://localhost:3000/v1/home \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# STAFF (modo default staff)
+ACCESS_TOKEN="<token-professor>"
+curl http://localhost:3000/v1/home \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# STAFF vendo modo aluno (precisa ter ALUNO em roles)
+curl "http://localhost:3000/v1/home?mode=aluno" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# ALUNO tentando mode=staff -> 403 (nao tem papel staff)
+curl "http://localhost:3000/v1/home?mode=staff" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
 ## Timezone e "hoje"
 - O backend calcula a janela de "hoje" com base em `APP_TIMEZONE` (padrao `America/Sao_Paulo`) usando SQL (`date_trunc`), gerando [startUtc, endUtc) para filtrar `aulas.data_inicio` (timestamptz).
 - Endpoints que usam "hoje": `GET /v1/aulas/hoje` e contadores do `GET /v1/dashboard/staff`.
@@ -209,6 +234,6 @@ curl "http://localhost:3000/v1/alunos/$ALUNO_ID/historico-presencas?from=2025-01
 - Se alterar `JWT_SECRET`, todos os tokens antigos (emitidos antes da troca) deixam de funcionar.
 
 ## Estado atual da API
-- **Real (Postgres):** `POST /v1/auth/login`, `GET /v1/auth/me`, `GET /v1/auth/convite/:codigo`, `POST /v1/auth/register`, `GET /v1/dashboard/aluno`, `GET /v1/dashboard/staff`, `GET /v1/alunos`, `GET /v1/alunos/:id`, `GET /v1/alunos/:id/evolucao`, `GET /v1/alunos/:id/historico-presencas`, `GET /v1/turmas`, `GET /v1/aulas/hoje`, `GET /v1/aulas/:id/qrcode`, `GET /v1/checkin/disponiveis`, `POST /v1/checkin`, `GET /v1/presencas/pendencias`, `PATCH /v1/presencas/:id/status`.
+- **Real (Postgres):** `POST /v1/auth/login`, `GET /v1/auth/me`, `GET /v1/auth/convite/:codigo`, `POST /v1/auth/register`, `GET /v1/home`, `GET /v1/dashboard/aluno`, `GET /v1/dashboard/staff`, `GET /v1/alunos`, `GET /v1/alunos/:id`, `GET /v1/alunos/:id/evolucao`, `GET /v1/alunos/:id/historico-presencas`, `GET /v1/turmas`, `GET /v1/aulas/hoje`, `GET /v1/aulas/:id/qrcode`, `GET /v1/checkin/disponiveis`, `POST /v1/checkin`, `GET /v1/presencas/pendencias`, `PATCH /v1/presencas/:id/status`.
 - **Stub/mock (retorno provisorio):** `GET /v1/config/*`, `POST /v1/invites`, `POST /v1/graduacoes`, `POST /v1/auth/refresh`, `POST /v1/auth/forgot-password`, `POST /v1/auth/reset-password`.
 - Prefixo global `/v1`; Swagger em `/v1/docs`.
