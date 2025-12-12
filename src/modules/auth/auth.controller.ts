@@ -9,6 +9,7 @@ import { UserRole } from '../../common/enums/user-role.enum';
 import { ApiAuth } from '../../common/decorators/api-auth.decorator';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Throttle } from '@nestjs/throttler';
 import { AuthTokensDto } from './dtos/auth-tokens.dto';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { InviteValidationDto } from './dtos/invite-validation.dto';
@@ -25,6 +26,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60 } })
   @ApiOperation({ summary: 'Login com email/senha' })
   @ApiOkResponse({ type: AuthTokensDto })
   async login(@Body() dto: LoginDto): Promise<AuthTokensDto> {

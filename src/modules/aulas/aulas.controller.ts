@@ -12,6 +12,7 @@ import { CurrentUser } from '../../common/decorators/user.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { Throttle } from '@nestjs/throttler';
 import {
   AulasService,
   CurrentUser as CurrentUserPayload,
@@ -40,6 +41,7 @@ export class AulasController {
   @Roles(UserRole.INSTRUTOR, UserRole.PROFESSOR, UserRole.ADMIN, UserRole.TI)
   @ApiOperation({ summary: 'Obtem token de QR Code da aula' })
   @ApiOkResponse({ type: AulaQrCodeDto })
+  @Throttle({ default: { limit: 10, ttl: 60 } })
   async obterQrCode(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: CurrentUserPayload,

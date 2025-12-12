@@ -11,6 +11,7 @@ import { CurrentUser as CurrentUserDecorator } from '../../common/decorators/use
 import { UserRole } from '../../common/enums/user-role.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { Throttle } from '@nestjs/throttler';
 import { CheckinService, CurrentUser } from './checkin.service';
 import { CheckinDisponivelDto } from './dtos/checkin-disponivel.dto';
 import { CheckinResponseDto } from './dtos/checkin-response.dto';
@@ -27,6 +28,7 @@ export class CheckinController {
   @Roles(UserRole.ALUNO)
   @ApiOperation({ summary: 'Lista aulas do dia para check-in' })
   @ApiOkResponse({ type: [CheckinDisponivelDto] })
+  @Throttle({ default: { limit: 20, ttl: 60 } })
   async listarDisponiveis(
     @CurrentUserDecorator() user: CurrentUser,
   ): Promise<CheckinDisponivelDto[]> {
@@ -37,6 +39,7 @@ export class CheckinController {
   @Roles(UserRole.ALUNO)
   @ApiOperation({ summary: 'Realiza check-in (manual ou QR)' })
   @ApiCreatedResponse({ type: CheckinResponseDto })
+  @Throttle({ default: { limit: 10, ttl: 60 } })
   async criarCheckin(
     @Body() dto: CreateCheckinDto,
     @CurrentUserDecorator() user: CurrentUser,

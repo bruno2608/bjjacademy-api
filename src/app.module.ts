@@ -12,11 +12,21 @@ import { PresencasModule } from './modules/presencas/presencas.module';
 import { AlunosModule } from './modules/alunos/alunos.module';
 import { TurmasModule } from './modules/turmas/turmas.module';
 import { HomeModule } from './modules/home/home.module';
+import { HealthModule } from './modules/health/health.module';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
     NestConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: Number(process.env.RATE_LIMIT_TTL ?? 60),
+        limit: Number(process.env.RATE_LIMIT_LIMIT ?? 100),
+      },
+    ]),
     AuthModule,
     DashboardModule,
     CheckinModule,
@@ -28,6 +38,13 @@ import { HomeModule } from './modules/home/home.module';
     AppConfigModule,
     InvitesModule,
     HomeModule,
+    HealthModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

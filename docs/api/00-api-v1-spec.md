@@ -20,7 +20,9 @@ Documento de referencia rapida da API v1 do ecossistema **BJJAcademy / BJJAcadem
 - **Swagger/Authorize**: em `/v1/docs`, clique em **Authorize** (esquema `JWT`) e cole apenas o `accessToken` (sem `Bearer`); o Swagger prefixa o header e so envia para rotas anotadas com `@ApiBearerAuth('JWT')` (via `@ApiAuth()`). A opcao `persistAuthorization: true` mantem o token apos refresh da pagina.
 - **Multi-tenant**: todas as consultas devem ser filtradas pelo `academiaId` presente no JWT (dashboards, presencas, regras, etc.).
 - **Home vs Dashboard**: `GET /v1/home` e a tela agregada (modo padrao STAFF se houver papel staff; senao ALUNO; aceita `?mode=aluno|staff` respeitando `roles`). Dashboards dedicados permanecem em `/v1/dashboard/aluno` e `/v1/dashboard/staff`.
-- **Timezone (\"hoje\")**: o backend calcula a janela [startUtc, endUtc) usando `APP_TIMEZONE` (padrao `America/Sao_Paulo`) via SQL `date_trunc`. Endpoints que usam isso: `GET /v1/aulas/hoje` e contadores de `GET /v1/dashboard/staff`. Futuro: ler timezone por academia.
+- **Timezone ("hoje")**: o backend calcula a janela [startUtc, endUtc) usando `APP_TIMEZONE` (padrao `America/Sao_Paulo`) via SQL `date_trunc`. Endpoints que usam isso: `GET /v1/aulas/hoje` e contadores de `GET /v1/dashboard/staff`. Futuro: ler timezone por academia.
+- **Health**: `GET /v1/health` (liveness) e `GET /v1/health/ready` (readiness com Postgres).
+- **Seguranca (MVP)**: Helmet habilitado; CORS configuravel via env; rate limit global (TTL/limit via env) com reforco em rotas sensiveis (`/auth/login`, `/checkin`, `/checkin/disponiveis`, `/aulas/:id/qrcode`).
 - **Claims do JWT** (emitido no login):
   - `sub`: id do usuario (`usuarios.id`)
   - `email`

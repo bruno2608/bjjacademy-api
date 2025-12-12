@@ -15,6 +15,11 @@ Preencha:
 - `DATABASE_URL=postgresql://...` (string do Supabase/Postgres; use `?sslmode=require` no Supabase)
 - `JWT_SECRET=chave-super-forte` (obrigatorio, nao commitar)
 - Opcionais: `JWT_EXPIRES_IN=1h`, `PORT=3000`, `QR_TTL_MINUTES=5`
+- Segurança (CORS/Helmet/Rate-limit):
+  - `CORS_ENABLED=true|false` (default true)
+  - `CORS_ORIGIN=*` (ou uma origem especifica)
+  - `RATE_LIMIT_TTL=60` (segundos)
+  - `RATE_LIMIT_LIMIT=100` (requests por TTL; rotas sensiveis tem limites menores via decorator)
 - Timezone/SSL:
   - `APP_TIMEZONE=America/Sao_Paulo` (usado para calcular janela de "hoje" em UTC)
   - `PG_SSL=true` (default true para Supabase)
@@ -110,6 +115,33 @@ curl "http://localhost:3000/v1/home?mode=staff" \
 Notas:
 - Personas seed de staff (ex.: professor) trazem `roles` como `["PROFESSOR","ALUNO"]`, entao podem usar `mode=aluno` ou `mode=staff`.
 - Aluno puro nao possui papel staff, entao `mode=staff` retorna 403.
+
+## Health checks
+- `GET /v1/health` (liveness)
+- `GET /v1/health/ready` (readiness; inclui checagem de Postgres via `DatabaseService`)
+
+Testes rapidos:
+```bash
+curl http://localhost:3000/v1/health
+curl http://localhost:3000/v1/health/ready
+```
+
+## Rate limit e segurança (MVP)
+- Helmet habilitado por default.
+- CORS configuravel via `CORS_ENABLED`/`CORS_ORIGIN`.
+- Rate limit global (TTL/limit configuraveis via env) e reforco em rotas sensiveis:
+  - `POST /v1/auth/login` (Throttle 5 req/60s por IP)
+  - `POST /v1/checkin` (Throttle 10 req/60s)
+  - `GET /v1/checkin/disponiveis` (Throttle 20 req/60s)
+  - `GET /v1/aulas/:id/qrcode` (Throttle 10 req/60s)
+```bash
+# Exemplo login ate estourar limite
+for i in {1..6}; do
+  curl -i -X POST http://localhost:3000/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"aluno.seed@example.com","senha":"SenhaAluno123"}';
+done
+```
 
 ## Timezone e "hoje"
 - O backend calcula a janela de "hoje" com base em `APP_TIMEZONE` (padrao `America/Sao_Paulo`) usando SQL (`date_trunc`), gerando [startUtc, endUtc) para filtrar `aulas.data_inicio` (timestamptz).
