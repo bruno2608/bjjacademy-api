@@ -1,8 +1,20 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiCreatedResponse,
 } from '@nestjs/swagger';
 import { ApiAuth } from '../../common/decorators/api-auth.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -10,7 +22,10 @@ import { CurrentUser } from '../../common/decorators/user.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { TurmaDto } from './dtos/turma.dto';
+import { CreateTurmaDto } from './dtos/create-turma.dto';
+import { ListTurmasQueryDto } from './dtos/list-turmas-query.dto';
+import { TurmaResponseDto } from './dtos/turma-response.dto';
+import { UpdateTurmaDto } from './dtos/update-turma.dto';
 import {
   TurmasService,
   CurrentUser as CurrentUserPayload,
@@ -32,10 +47,63 @@ export class TurmasController {
     UserRole.TI,
   )
   @ApiOperation({ summary: 'Lista turmas cadastradas' })
-  @ApiOkResponse({ type: [TurmaDto] })
+  @ApiOkResponse({ type: [TurmaResponseDto] })
   async listar(
     @CurrentUser() user: CurrentUserPayload,
-  ): Promise<TurmaDto[]> {
-    return this.turmasService.listar(user);
+    @Query() query: ListTurmasQueryDto,
+  ): Promise<TurmaResponseDto[]> {
+    return this.turmasService.listar(user, query);
+  }
+
+  @Get(':id')
+  @Roles(
+    UserRole.ALUNO,
+    UserRole.INSTRUTOR,
+    UserRole.PROFESSOR,
+    UserRole.ADMIN,
+    UserRole.TI,
+  )
+  @ApiOperation({ summary: 'Detalhe da turma' })
+  @ApiOkResponse({ type: TurmaResponseDto })
+  async detalhar(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<TurmaResponseDto> {
+    return this.turmasService.detalhar(id, user);
+  }
+
+  @Post()
+  @Roles(UserRole.INSTRUTOR, UserRole.PROFESSOR, UserRole.ADMIN, UserRole.TI)
+  @ApiOperation({ summary: 'Cria nova turma' })
+  @ApiCreatedResponse({ type: TurmaResponseDto })
+  async criar(
+    @Body() dto: CreateTurmaDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<TurmaResponseDto> {
+    return this.turmasService.criar(dto, user);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.INSTRUTOR, UserRole.PROFESSOR, UserRole.ADMIN, UserRole.TI)
+  @ApiOperation({ summary: 'Atualiza turma' })
+  @ApiOkResponse({ type: TurmaResponseDto })
+  async atualizar(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateTurmaDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<TurmaResponseDto> {
+    return this.turmasService.atualizar(id, dto, user);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.INSTRUTOR, UserRole.PROFESSOR, UserRole.ADMIN, UserRole.TI)
+  @ApiOperation({ summary: 'Soft-delete de turma' })
+  @ApiOkResponse({ schema: { example: { success: true } } })
+  async remover(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<{ success: true }> {
+    await this.turmasService.remover(id, user);
+    return { success: true };
   }
 }

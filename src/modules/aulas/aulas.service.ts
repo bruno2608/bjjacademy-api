@@ -63,6 +63,7 @@ export class AulasService {
           and a.data_inicio >= $2
           and a.data_inicio < $3
           and a.status <> 'CANCELADA'
+          and (t.deleted_at is null)
         order by a.data_inicio asc;
       `,
       [currentUser.academiaId, startUtc, endUtc],

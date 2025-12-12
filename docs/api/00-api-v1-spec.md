@@ -320,23 +320,37 @@ Notas:
 
 ### 3.4 Turmas e Aulas (listagens) — real
 
-#### 3.4.1 GET `/turmas`
-- **Roles:** `ALUNO`, `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI`.
-- **Multi-tenant:** filtra `turmas` pelo `academiaId` do token.
-- **Retorna:** `id`, `nome`, `tipoTreino`, `diasSemana` (0=Domingo ... 6=Sabado), `horarioPadrao` (HH:MM), `instrutorPadraoId`, `instrutorPadraoNome`.
-- **Exemplo (seed):**
-  ```json
-  [
-    {
-      "id": "turma-uuid",
-      "nome": "Adulto Gi Noite",
-      "tipoTreino": "Gi Adulto",
-      "diasSemana": [1, 3],
-      "horarioPadrao": "19:00",
-      "instrutorPadraoId": "instrutor-uuid",
-      "instrutorPadraoNome": "Instrutor Seed"
-    }
-  ]
+#### 3.4.1 Turmas (CRUD com soft-delete)
+- **Roles leitura:** `ALUNO` e staff (mesma academia). **Escrita:** `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI`.
+- **Soft-delete:** `deleted_at/deleted_by`; listagens ignoram deletadas por default. `includeDeleted=true` so para staff.
+- **Endpoints:**
+  - `GET /turmas` (query `includeDeleted` opcional)
+  - `GET /turmas/:id`
+  - `POST /turmas`
+  - `PATCH /turmas/:id`
+  - `DELETE /turmas/:id` (marca `deleted_at/deleted_by`)
+- **Campos (response):** `id`, `nome`, `tipoTreino`, `diasSemana` (0=Dom ... 6=Sab), `horarioPadrao` (HH:MM), `instrutorPadraoId`, `instrutorPadraoNome`, `deletedAt`.
+- **Curls (staff):**
+  ```bash
+  ACCESS_TOKEN="<token-professor>"
+  # criar
+  curl -X POST http://localhost:3000/v1/turmas \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"nome":"No-Gi Manha","tipoTreinoId":"<tipo-id>","diasSemana":[2,4],"horarioPadrao":"08:00"}'
+  # listar
+  curl http://localhost:3000/v1/turmas -H "Authorization: Bearer $ACCESS_TOKEN"
+  # editar
+  curl -X PATCH http://localhost:3000/v1/turmas/<turmaId> \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"horarioPadrao":"09:00"}'
+  # deletar (soft)
+  curl -X DELETE http://localhost:3000/v1/turmas/<turmaId> \
+    -H "Authorization: Bearer $ACCESS_TOKEN"
+  # listar deletadas (staff)
+  curl "http://localhost:3000/v1/turmas?includeDeleted=true" \
+    -H "Authorization: Bearer $ACCESS_TOKEN"
   ```
 
 #### 3.4.2 GET `/aulas/hoje`

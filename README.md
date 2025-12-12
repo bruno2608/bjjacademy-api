@@ -116,6 +116,40 @@ Notas:
 - Personas seed de staff (ex.: professor) trazem `roles` como `["PROFESSOR","ALUNO"]`, entao podem usar `mode=aluno` ou `mode=staff`.
 - Aluno puro nao possui papel staff, entao `mode=staff` retorna 403.
 
+## Turmas (CRUD com soft-delete)
+- Leitura (ALUNO e staff): `GET /v1/turmas` (default ignora deletadas), `GET /v1/turmas/:id`.
+- Escrita (STAFF: INSTRUTOR/PROFESSOR/ADMIN/TI): `POST /v1/turmas`, `PATCH /v1/turmas/:id`, `DELETE /v1/turmas/:id` (soft-delete com `deleted_at/deleted_by`).
+- Query `includeDeleted=true` somente para staff e mostra turmas soft-deletadas.
+
+Exemplos (professor):
+```bash
+ACCESS_TOKEN="<token-professor>"
+
+# criar turma
+curl -X POST http://localhost:3000/v1/turmas \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"nome":"No-Gi Manha","tipoTreinoId":"<tipo-id>","diasSemana":[2,4],"horarioPadrao":"08:00","instrutorPadraoId":null}'
+
+# listar (sem deletadas)
+curl http://localhost:3000/v1/turmas \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# editar
+curl -X PATCH http://localhost:3000/v1/turmas/<turmaId> \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"horarioPadrao":"09:00"}'
+
+# deletar (soft)
+curl -X DELETE http://localhost:3000/v1/turmas/<turmaId> \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# listar com deletadas (staff)
+curl "http://localhost:3000/v1/turmas?includeDeleted=true" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
 ## Health checks
 - `GET /v1/health` (liveness)
 - `GET /v1/health/ready` (readiness; inclui checagem de Postgres via `DatabaseService`)
@@ -274,6 +308,6 @@ curl "http://localhost:3000/v1/alunos/$ALUNO_ID/historico-presencas?from=2025-01
 - Se alterar `JWT_SECRET`, todos os tokens antigos (emitidos antes da troca) deixam de funcionar.
 
 ## Estado atual da API
-- **Real (Postgres):** `POST /v1/auth/login`, `GET /v1/auth/me`, `GET /v1/auth/convite/:codigo`, `POST /v1/auth/register`, `GET /v1/home`, `GET /v1/dashboard/aluno`, `GET /v1/dashboard/staff`, `GET /v1/alunos`, `GET /v1/alunos/:id`, `GET /v1/alunos/:id/evolucao`, `GET /v1/alunos/:id/historico-presencas`, `GET /v1/turmas`, `GET /v1/aulas/hoje`, `GET /v1/aulas/:id/qrcode`, `GET /v1/checkin/disponiveis`, `POST /v1/checkin`, `GET /v1/presencas/pendencias`, `PATCH /v1/presencas/:id/status`.
+- **Real (Postgres):** `POST /v1/auth/login`, `GET /v1/auth/me`, `GET /v1/auth/convite/:codigo`, `POST /v1/auth/register`, `GET /v1/home`, `GET /v1/dashboard/aluno`, `GET /v1/dashboard/staff`, `GET /v1/alunos`, `GET /v1/alunos/:id`, `GET /v1/alunos/:id/evolucao`, `GET /v1/alunos/:id/historico-presencas`, `GET /v1/turmas`, `GET /v1/turmas/:id`, `POST /v1/turmas`, `PATCH /v1/turmas/:id`, `DELETE /v1/turmas/:id`, `GET /v1/aulas/hoje`, `GET /v1/aulas/:id/qrcode`, `GET /v1/checkin/disponiveis`, `POST /v1/checkin`, `GET /v1/presencas/pendencias`, `PATCH /v1/presencas/:id/status`.
 - **Stub/mock (retorno provisorio):** `GET /v1/config/*`, `POST /v1/invites`, `POST /v1/graduacoes`, `POST /v1/auth/refresh`, `POST /v1/auth/forgot-password`, `POST /v1/auth/reset-password`.
 - Prefixo global `/v1`; Swagger em `/v1/docs`.
