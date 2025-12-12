@@ -161,18 +161,130 @@ O Swagger enviara automaticamente `Authorization: Bearer <accessToken>`.
   }
   ```
 
-### 3.3 Check-in & Presencas
+### 3.3 Alunos (perfil e evolucao) — real
+
+#### 3.3.1 GET `/alunos` (staff)
+- **Roles:** `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI` (aluno nao pode).
+- **Multi-tenant:** filtra por `academiaId` do JWT usando papeis/matriculas.
+- **Retorna:** `id`, `nome`, `email`, `faixaAtual` (slug), `grauAtual`, `matriculaStatus`, `matriculaNumero`.
+- **Exemplo (seeds):**
+  ```json
+  [
+    {
+      "id": "aluno-uuid",
+      "nome": "Aluno Seed",
+      "email": "aluno.seed@example.com",
+      "faixaAtual": "azul",
+      "grauAtual": 1,
+      "matriculaStatus": "ATIVA",
+      "matriculaNumero": 2
+    }
+  ]
+  ```
+
+#### 3.3.2 GET `/alunos/:id`
+- **Roles/escopo:** `ALUNO` so pode consultar o proprio `id` (`sub` do token). `INSTRUTOR/PROFESSOR/ADMIN/TI` podem consultar qualquer aluno da **mesma** academia; se outra academia, `403`. `UUID` invalido -> `400`; inexistente -> `404`.
+- **Retorna:** dados do aluno + vinculo atual: `id`, `nome`, `email`, `academiaId`, `academiaNome`, `matriculaNumero`, `matriculaStatus`, `matriculaDataInicio`, `matriculaDataFim`, `faixaAtual`, `grauAtual`, `presencasTotais` (somente status `PRESENTE` na academia do token).
+- **Exemplo (Aluno Seed):**
+  ```json
+  {
+    "id": "58c97363-6137-46ff-b5b4-ec2cd77a075f",
+    "nome": "Aluno Seed",
+    "email": "aluno.seed@example.com",
+    "academiaId": "46af5505-f3cd-4df2-b856-ce1a33471481",
+    "academiaNome": "Academia Seed BJJ",
+    "matriculaNumero": 2,
+    "matriculaStatus": "ATIVA",
+    "matriculaDataInicio": "2025-06-01",
+    "matriculaDataFim": null,
+    "faixaAtual": "azul",
+    "grauAtual": 1,
+    "presencasTotais": 20
+  }
+  ```
+
+#### 3.3.3 GET `/alunos/:id/evolucao`
+- **Roles/escopo:** mesmo acesso da rota de detalhe (`ALUNO` so o proprio id; staff da mesma academia).
+- **Calculo:**  
+  - `historico`: graduacoes na academia (`graduacoes` + `usuarios` do professor).  
+  - `aulasNaFaixaAtual`: presencas `PRESENTE` desde a ultima graduacao (ou `data_inicio` da matricula se ainda nao graduado).  
+  - `metaAulas`: `regras_graduacao.meta_aulas_no_grau` se > 0; senao `aulas_minimas`; senao `DEFAULT_META_AULAS = 60`.  
+  - `porcentagemProgresso`: `floor(aulasNaFaixaAtual * 100 / metaAulas)`, limitado a `100`; se `metaAulas <= 0` retorna `0`.  
+- **Exemplo (Aluno Seed):**
+  ```json
+  {
+    "historico": [
+      {
+        "faixaSlug": "branca",
+        "grau": 0,
+        "dataGraduacao": "2024-01-10T00:00:00.000Z",
+        "professorNome": "Professor Seed"
+      },
+      {
+        "faixaSlug": "azul",
+        "grau": 1,
+        "dataGraduacao": "2025-07-18T00:00:00.000Z",
+        "professorNome": "Professor Seed"
+      }
+    ],
+    "faixaAtual": "azul",
+    "grauAtual": 1,
+    "aulasNaFaixaAtual": 20,
+    "metaAulas": 60,
+    "porcentagemProgresso": 33
+  }
+  ```
+
+### 3.4 Turmas e Aulas (listagens) — real
+
+#### 3.4.1 GET `/turmas`
+- **Roles:** `ALUNO`, `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI`.
+- **Multi-tenant:** filtra `turmas` pelo `academiaId` do token.
+- **Retorna:** `id`, `nome`, `tipoTreino`, `diasSemana` (0=Domingo ... 6=Sabado), `horarioPadrao` (HH:MM), `instrutorPadraoId`, `instrutorPadraoNome`.
+- **Exemplo (seed):**
+  ```json
+  [
+    {
+      "id": "turma-uuid",
+      "nome": "Adulto Gi Noite",
+      "tipoTreino": "Gi Adulto",
+      "diasSemana": [1, 3],
+      "horarioPadrao": "19:00",
+      "instrutorPadraoId": "instrutor-uuid",
+      "instrutorPadraoNome": "Instrutor Seed"
+    }
+  ]
+  ```
+
+#### 3.4.2 GET `/aulas/hoje`
+- **Roles:** `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI`.
+- **Multi-tenant:** filtra `aulas` pelo `academiaId` e `date(data_inicio) = current_date`, ignorando `CANCELADA`.
+- **Retorna:** `id`, `dataInicio`, `dataFim`, `status`, `turmaId`, `turmaNome`, `turmaHorarioPadrao`, `tipoTreino`, `instrutorNome`.
+- **Observacao:** se nao ha aulas no dia (ex.: seeds acabam em 2025-11), retorna `[]`.
+- **Exemplo de estrutura (aula da seed):**
+  ```json
+  [
+    {
+      "id": "aula-uuid",
+      "dataInicio": "2025-09-01T19:00:00.000Z",
+      "dataFim": "2025-09-01T20:30:00.000Z",
+      "status": "ENCERRADA",
+      "turmaId": "turma-uuid",
+      "turmaNome": "Adulto Gi Noite",
+      "turmaHorarioPadrao": "19:00",
+      "tipoTreino": "Gi Adulto",
+      "instrutorNome": "Instrutor Seed"
+    }
+  ]
+  ```
+
+### 3.5 Check-in & Presencas
 
 - `GET /checkin/disponiveis` - aulas disponiveis para check-in (planejado).
 - `POST /checkin` - efetiva check-in (validando QR/horario, planejado).
 - `GET /presencas` e endpoints de ajuste/validacao (planejado).
 
-### 3.4 Alunos & Graduacoes
-
-- `GET /alunos/:id/evolucao` - evolucao de faixas/graus (planejado).
-- `GET /graduacoes` / `POST /graduacoes` - registro de graduacoes (planejado).
-
-### 3.5 Configuracoes
+### 3.6 Configuracoes
 
 - `GET /config/regras-graduacao` / `PUT /config/regras-graduacao/:faixaSlug` - regras de graduacao (planejado).
 - `GET /config/tipos-treino` - tipos/modalidades de treino (planejado).

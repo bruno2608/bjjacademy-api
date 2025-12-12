@@ -10,9 +10,15 @@ export class AlunoDto {
   @ApiProperty()
   email: string;
 
-  @ApiProperty()
-  faixaAtual: string;
+  @ApiProperty({ nullable: true })
+  faixaAtual: string | null;
 
-  @ApiProperty()
-  statusMatricula: string;
+  @ApiProperty({ nullable: true })
+  grauAtual: number | null;
+
+  @ApiProperty({ nullable: true })
+  matriculaStatus: string | null;
+
+  @ApiProperty({ nullable: true, type: Number })
+  matriculaNumero: number | null;
 }

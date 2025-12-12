@@ -8,11 +8,22 @@ export class TurmaDto {
   nome: string;
 
   @ApiProperty()
-  faixaAlvo: string;
+  tipoTreino: string;
 
-  @ApiProperty()
-  professor: string;
+  @ApiProperty({
+    type: [Number],
+    description: 'Dias da semana (0=Domingo ... 6=Sabado)',
+  })
+  diasSemana: number[];
 
-  @ApiProperty({ description: 'Horários recorrentes (ex.: seg/qua 20h)' })
-  horarios: string;
+  @ApiProperty({
+    description: 'Horario padrao no formato HH:MM (hora local)',
+  })
+  horarioPadrao: string;
+
+  @ApiProperty({ nullable: true })
+  instrutorPadraoId: string | null;
+
+  @ApiProperty({ nullable: true })
+  instrutorPadraoNome: string | null;
 }

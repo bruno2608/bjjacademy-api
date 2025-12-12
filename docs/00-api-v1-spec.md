@@ -48,16 +48,21 @@ curl http://localhost:3000/v1/dashboard/aluno \
 curl http://localhost:3000/v1/dashboard/staff \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 
-# /alunos/:id (stub - retorno provisorio)
-curl http://localhost:3000/v1/alunos/123 \
+# /alunos/:id (real - aluno so pode o proprio id; staff consulta alunos da mesma academia)
+ALUNO_ID="<id-do-aluno-ou-do-proprio-usuario>"
+curl http://localhost:3000/v1/alunos/$ALUNO_ID \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 
-# /alunos/:id/evolucao (stub - retorno provisorio)
-curl http://localhost:3000/v1/alunos/123/evolucao \
+# /alunos/:id/evolucao (real - mesmas permissoes da rota de detalhe)
+curl http://localhost:3000/v1/alunos/$ALUNO_ID/evolucao \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 
-# /turmas (stub - retorno provisorio)
+# /turmas (real, filtra academiaId do token)
 curl http://localhost:3000/v1/turmas \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# /aulas/hoje (real, staff INSTRUTOR/PROFESSOR/ADMIN/TI)
+curl http://localhost:3000/v1/aulas/hoje \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -113,48 +118,74 @@ curl http://localhost:3000/v1/turmas \
     "faltasHoje": 0
   }
   ```
-- `GET /alunos/:id` (stub):
+- `GET /alunos/:id` (real):
   ```json
   {
-    "id": "123",
-    "nome": "Joao Silva",
-    "email": "joao@example.com",
-    "telefone": "+55 11 99999-9999",
-    "matriculaNumero": "MAT-001",
-    "academia": "BJJ Academy Central",
-    "statusMatricula": "ATIVA",
-    "faixaAtual": "Azul",
-    "grauAtual": 2,
-    "presencasTotais": 120
+    "id": "58c97363-6137-46ff-b5b4-ec2cd77a075f",
+    "nome": "Aluno Seed",
+    "email": "aluno.seed@example.com",
+    "academiaId": "46af5505-f3cd-4df2-b856-ce1a33471481",
+    "academiaNome": "Academia Seed BJJ",
+    "matriculaNumero": 2,
+    "matriculaStatus": "ATIVA",
+    "matriculaDataInicio": "2025-06-01",
+    "matriculaDataFim": null,
+    "faixaAtual": "azul",
+    "grauAtual": 1,
+    "presencasTotais": 20
   }
   ```
-- `GET /alunos/:id/evolucao` (stub):
+- `GET /alunos/:id/evolucao` (real):
   ```json
   {
     "historico": [
       {
-        "faixaAnterior": "Branca",
-        "grauAnterior": 2,
-        "faixaNova": "Azul",
-        "grauNovo": 0,
-        "data": "2024-05-10",
-        "professor": "Professor X"
+        "faixaSlug": "branca",
+        "grau": 0,
+        "dataGraduacao": "2024-01-10T00:00:00.000Z",
+        "professorNome": "Professor Seed"
+      },
+      {
+        "faixaSlug": "azul",
+        "grau": 1,
+        "dataGraduacao": "2025-07-18T00:00:00.000Z",
+        "professorNome": "Professor Seed"
       }
     ],
-    "aulasNaFaixaAtual": 12,
-    "metaAulas": 40,
-    "porcentagemProgresso": 30
+    "faixaAtual": "azul",
+    "grauAtual": 1,
+    "aulasNaFaixaAtual": 20,
+    "metaAulas": 60,
+    "porcentagemProgresso": 33
   }
   ```
-- `GET /turmas` (stub):
+- `GET /turmas` (real):
   ```json
   [
     {
-      "id": "turma-1",
-      "nome": "Fundamentos Gi",
-      "faixaAlvo": "Branca/Azul",
-      "professor": "Professor X",
-      "horarios": "Seg/Qua/Sex - 19h"
+      "id": "turma-uuid",
+      "nome": "Adulto Gi Noite",
+      "tipoTreino": "Gi Adulto",
+      "diasSemana": [1, 3],
+      "horarioPadrao": "19:00",
+      "instrutorPadraoId": "instrutor-uuid",
+      "instrutorPadraoNome": "Instrutor Seed"
+    }
+  ]
+  ```
+- `GET /aulas/hoje` (real - pode retornar lista vazia se nao houver aulas no dia):
+  ```json
+  [
+    {
+      "id": "aula-uuid",
+      "dataInicio": "2025-09-01T19:00:00.000Z",
+      "dataFim": "2025-09-01T20:30:00.000Z",
+      "status": "ENCERRADA",
+      "turmaId": "turma-uuid",
+      "turmaNome": "Adulto Gi Noite",
+      "turmaHorarioPadrao": "19:00",
+      "tipoTreino": "Gi Adulto",
+      "instrutorNome": "Instrutor Seed"
     }
   ]
   ```
@@ -168,11 +199,12 @@ curl http://localhost:3000/v1/turmas \
 ## 5) Endpoints atuais no Swagger
 - **Auth (real)**: `POST /auth/login`, `GET /auth/me`, `GET /auth/convite/:codigo`, `POST /auth/register`.
 - **Dashboard (real)**: `GET /dashboard/aluno`, `GET /dashboard/staff`.
+- **Alunos (real)**: `GET /alunos`, `GET /alunos/:id`, `GET /alunos/:id/evolucao`.
+- **Turmas/Aulas (real)**: `GET /turmas`, `GET /aulas/hoje`.
+- **Aulas (stub)**: `GET /aulas/:id/qrcode` (token de QR ainda mock).
 - **Auth (stub/mock)**: `POST /auth/refresh`, `POST /auth/forgot-password`, `POST /auth/reset-password`.
 - **Checkin (stub)**: `GET /checkin/disponiveis`, `POST /checkin`.
 - **Presencas (stub)**: `GET /presencas/pendencias`, `PATCH /presencas/:id/status`, `GET /alunos/:id/historico-presencas`.
-- **Alunos (stub)**: `GET /alunos`, `GET /alunos/:id`, `GET /alunos/:id/evolucao`.
-- **Aulas/Turmas (stub)**: `GET /turmas`, `GET /aulas/hoje`, `GET /aulas/:id/qrcode`.
 - **Config (stub)**: `GET /config/tipos-treino`, `GET /config/regras-graduacao`, `PUT /config/regras-graduacao/:faixaSlug`.
 - **Invites (stub)**: `POST /invites`.
 

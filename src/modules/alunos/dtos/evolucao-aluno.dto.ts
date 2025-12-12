@@ -1,28 +1,28 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-class GraducaoHistoricoItem {
+class GraduacaoHistoricoItem {
   @ApiProperty()
-  faixaAnterior: string;
+  faixaSlug: string;
+
+  @ApiProperty({ nullable: true })
+  grau: number | null;
 
   @ApiProperty()
-  grauAnterior: number;
+  dataGraduacao: string;
 
-  @ApiProperty()
-  faixaNova: string;
-
-  @ApiProperty()
-  grauNovo: number;
-
-  @ApiProperty()
-  data: string;
-
-  @ApiProperty()
-  professor: string;
+  @ApiProperty({ nullable: true })
+  professorNome: string | null;
 }
 
 export class EvolucaoAlunoDto {
-  @ApiProperty({ type: [GraducaoHistoricoItem] })
-  historico: GraducaoHistoricoItem[];
+  @ApiProperty({ type: [GraduacaoHistoricoItem] })
+  historico: GraduacaoHistoricoItem[];
+
+  @ApiProperty({ nullable: true })
+  faixaAtual: string | null;
+
+  @ApiProperty({ nullable: true })
+  grauAtual: number | null;
 
   @ApiProperty()
   aulasNaFaixaAtual: number;

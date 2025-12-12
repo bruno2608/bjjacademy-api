@@ -11,22 +11,28 @@ export class AlunoDetalheDto {
   email: string;
 
   @ApiProperty()
-  telefone: string;
+  academiaId: string;
 
   @ApiProperty()
-  matriculaNumero: string;
+  academiaNome: string;
 
-  @ApiProperty()
-  academia: string;
+  @ApiProperty({ nullable: true, type: Number })
+  matriculaNumero: number | null;
 
-  @ApiProperty()
-  statusMatricula: string;
+  @ApiProperty({ nullable: true })
+  matriculaStatus: string | null;
 
-  @ApiProperty()
-  faixaAtual: string;
+  @ApiProperty({ nullable: true })
+  matriculaDataInicio: string | null;
 
-  @ApiProperty()
-  grauAtual: number;
+  @ApiProperty({ nullable: true })
+  matriculaDataFim: string | null;
+
+  @ApiProperty({ nullable: true })
+  faixaAtual: string | null;
+
+  @ApiProperty({ nullable: true })
+  grauAtual: number | null;
 
   @ApiProperty()
   presencasTotais: number;

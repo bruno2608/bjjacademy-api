@@ -75,6 +75,23 @@ curl http://localhost:3000/v1/dashboard/aluno \
 # Dashboard do staff (real, requer INSTRUTOR/PROFESSOR/ADMIN/TI)
 curl http://localhost:3000/v1/dashboard/staff \
   -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# Detalhe do aluno (ALUNO so pode o proprio id; staff consulta alunos da mesma academia)
+ALUNO_ID="<id-do-aluno-ou-do-proprio-usuario>"
+curl http://localhost:3000/v1/alunos/$ALUNO_ID \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# Evolucao do aluno (graduacoes + progresso de presencas)
+curl http://localhost:3000/v1/alunos/$ALUNO_ID/evolucao \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# Turmas da academia (todos os roles)
+curl http://localhost:3000/v1/turmas \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# Aulas do dia (staff INSTRUTOR/PROFESSOR/ADMIN/TI)
+curl http://localhost:3000/v1/aulas/hoje \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 Exemplo de resposta com os seeds (sem aulas futuras depois de 2025-11):
 ```json
@@ -106,6 +123,6 @@ Dashboard staff (mesmo cenario, data fora do calendario das seeds):
 - TI: `ti.seed@example.com` / `SenhaTi123`
 
 ## Estado atual da API
-- **Real (Postgres):** `POST /v1/auth/login`, `GET /v1/auth/me`, `GET /v1/auth/convite/:codigo`, `POST /v1/auth/register`, `GET /v1/dashboard/aluno`, `GET /v1/dashboard/staff`.
-- **Stub/mock (retorno provisorio):** `GET /v1/alunos`, `GET /v1/alunos/:id`, `GET /v1/alunos/:id/evolucao`, `GET /v1/turmas`, `GET /v1/aulas/hoje`, `GET /v1/aulas/:id/qrcode`, `GET /v1/checkin/disponiveis`, `POST /v1/checkin`, `GET /v1/presencas/pendencias`, `PATCH /v1/presencas/:id/status`, `GET /v1/alunos/:id/historico-presencas`, `GET /v1/config/*`, `POST /v1/invites`, `POST /v1/graduacoes`, `POST /v1/auth/refresh`, `POST /v1/auth/forgot-password`, `POST /v1/auth/reset-password`.
+- **Real (Postgres):** `POST /v1/auth/login`, `GET /v1/auth/me`, `GET /v1/auth/convite/:codigo`, `POST /v1/auth/register`, `GET /v1/dashboard/aluno`, `GET /v1/dashboard/staff`, `GET /v1/alunos`, `GET /v1/alunos/:id`, `GET /v1/alunos/:id/evolucao`, `GET /v1/turmas`, `GET /v1/aulas/hoje`.
+- **Stub/mock (retorno provisorio):** `GET /v1/aulas/:id/qrcode`, `GET /v1/checkin/disponiveis`, `POST /v1/checkin`, `GET /v1/presencas/pendencias`, `PATCH /v1/presencas/:id/status`, `GET /v1/alunos/:id/historico-presencas`, `GET /v1/config/*`, `POST /v1/invites`, `POST /v1/graduacoes`, `POST /v1/auth/refresh`, `POST /v1/auth/forgot-password`, `POST /v1/auth/reset-password`.
 - Prefixo global `/v1`; Swagger em `/v1/docs`.

@@ -6,11 +6,15 @@ import {
 } from '@nestjs/swagger';
 import { ApiAuth } from '../../common/decorators/api-auth.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/user.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { TurmaDto } from './dtos/turma.dto';
-import { TurmasService } from './turmas.service';
+import {
+  TurmasService,
+  CurrentUser as CurrentUserPayload,
+} from './turmas.service';
 
 @ApiTags('Turmas')
 @ApiAuth()
@@ -29,7 +33,9 @@ export class TurmasController {
   )
   @ApiOperation({ summary: 'Lista turmas cadastradas' })
   @ApiOkResponse({ type: [TurmaDto] })
-  async listar(): Promise<TurmaDto[]> {
-    return this.turmasService.listar();
+  async listar(
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<TurmaDto[]> {
+    return this.turmasService.listar(user);
   }
 }
