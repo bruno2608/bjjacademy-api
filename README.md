@@ -119,7 +119,8 @@ Notas:
 ## Turmas (CRUD com soft-delete)
 - Leitura (ALUNO e staff): `GET /v1/turmas` (default ignora deletadas), `GET /v1/turmas/:id`.
 - Escrita (STAFF: INSTRUTOR/PROFESSOR/ADMIN/TI): `POST /v1/turmas`, `PATCH /v1/turmas/:id`, `DELETE /v1/turmas/:id` (soft-delete com `deleted_at/deleted_by`).
-- Query `includeDeleted=true` somente para staff e mostra turmas soft-deletadas.
+- Query `includeDeleted=true` mostra todas; `onlyDeleted=true` lista apenas deletadas (somente staff).
+- Restore: `POST /v1/turmas/:id/restore` (staff) reativa a turma. Se ja existe turma ativa com o mesmo nome, retorna 409.
 
 Exemplos (professor):
 ```bash
@@ -147,6 +148,14 @@ curl -X DELETE http://localhost:3000/v1/turmas/<turmaId> \
 
 # listar com deletadas (staff)
 curl "http://localhost:3000/v1/turmas?includeDeleted=true" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# listar apenas deletadas
+curl "http://localhost:3000/v1/turmas?onlyDeleted=true" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# restaurar turma
+curl -X POST http://localhost:3000/v1/turmas/<turmaId>/restore \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 

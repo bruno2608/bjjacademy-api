@@ -15,4 +15,17 @@ export class ListTurmasQueryDto {
     return false;
   })
   includeDeleted?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Retorna apenas turmas deletadas (somente staff)',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') return value.toLowerCase() === 'true';
+    return false;
+  })
+  onlyDeleted?: boolean;
 }

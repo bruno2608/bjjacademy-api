@@ -324,11 +324,12 @@ Notas:
 - **Roles leitura:** `ALUNO` e staff (mesma academia). **Escrita:** `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI`.
 - **Soft-delete:** `deleted_at/deleted_by`; listagens ignoram deletadas por default. `includeDeleted=true` so para staff.
 - **Endpoints:**
-  - `GET /turmas` (query `includeDeleted` opcional)
+  - `GET /turmas` (queries `includeDeleted` ou `onlyDeleted` opcionais)
   - `GET /turmas/:id`
   - `POST /turmas`
   - `PATCH /turmas/:id`
   - `DELETE /turmas/:id` (marca `deleted_at/deleted_by`)
+  - `POST /turmas/:id/restore` (reativa; 409 se ja houver turma ativa com mesmo nome)
 - **Campos (response):** `id`, `nome`, `tipoTreino`, `diasSemana` (0=Dom ... 6=Sab), `horarioPadrao` (HH:MM), `instrutorPadraoId`, `instrutorPadraoNome`, `deletedAt`.
 - **Curls (staff):**
   ```bash
@@ -350,6 +351,12 @@ Notas:
     -H "Authorization: Bearer $ACCESS_TOKEN"
   # listar deletadas (staff)
   curl "http://localhost:3000/v1/turmas?includeDeleted=true" \
+    -H "Authorization: Bearer $ACCESS_TOKEN"
+  # listar apenas deletadas
+  curl "http://localhost:3000/v1/turmas?onlyDeleted=true" \
+    -H "Authorization: Bearer $ACCESS_TOKEN"
+  # restaurar turma (reativa)
+  curl -X POST http://localhost:3000/v1/turmas/<turmaId>/restore \
     -H "Authorization: Bearer $ACCESS_TOKEN"
   ```
 

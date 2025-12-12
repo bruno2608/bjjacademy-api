@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { CreateTurmaDto } from './dtos/create-turma.dto';
@@ -37,8 +38,9 @@ export class TurmasService {
     query?: ListTurmasQueryDto,
   ): Promise<TurmaResponseDto[]> {
     const includeDeleted = !!query?.includeDeleted;
+    const onlyDeleted = !!query?.onlyDeleted;
     const isStaff = this.userIsStaff(currentUser);
-    if (includeDeleted && !isStaff) {
+    if ((includeDeleted || onlyDeleted) && !isStaff) {
       throw new ForbiddenException('Apenas staff pode listar deletadas');
     }
 
@@ -59,7 +61,7 @@ export class TurmasService {
         left join usuarios instrutor
           on instrutor.id = t.instrutor_padrao_id
         where t.academia_id = $1
-          ${includeDeleted ? '' : 'and t.deleted_at is null'}
+          ${onlyDeleted ? 'and t.deleted_at is not null' : includeDeleted ? '' : 'and t.deleted_at is null'}
         order by t.nome asc;
       `,
       [currentUser.academiaId],
@@ -247,6 +249,66 @@ export class TurmasService {
       `,
       [currentUser.id, id, currentUser.academiaId],
     );
+  }
+
+  async restaurar(id: string, currentUser: CurrentUser): Promise<TurmaResponseDto> {
+    this.ensureStaff(currentUser);
+    const turma = await this.buscarTurma(id, currentUser.academiaId, {
+      includeDeleted: true,
+    });
+
+    if (!turma) {
+      throw new NotFoundException('Turma nao encontrada');
+    }
+
+    if (!turma.deleted_at) {
+      throw new ConflictException('Turma nao esta deletada');
+    }
+
+    const conflito = await this.databaseService.queryOne<{ id: string }>(
+      `
+        select id
+        from turmas
+        where academia_id = $1
+          and deleted_at is null
+          and lower(nome) = lower($2)
+          and id <> $3
+        limit 1;
+      `,
+      [currentUser.academiaId, turma.nome, id],
+    );
+
+    if (conflito) {
+      throw new ConflictException(
+        'Turma ja existe ativa com o mesmo nome. Renomeie antes de restaurar.',
+      );
+    }
+
+    const updated = await this.databaseService.queryOne<{ id: string }>(
+      `
+        update turmas
+           set deleted_at = null,
+               deleted_by = null
+         where id = $1
+           and academia_id = $2
+         returning id;
+      `,
+      [id, currentUser.academiaId],
+    );
+
+    if (!updated) {
+      throw new NotFoundException('Turma nao encontrada');
+    }
+
+    const restored = await this.buscarTurma(id, currentUser.academiaId, {
+      includeDeleted: false,
+    });
+
+    if (!restored) {
+      throw new NotFoundException('Turma nao encontrada apos restaurar');
+    }
+
+    return this.mapRow(restored);
   }
 
   private mapRow(row: TurmaRow & { academia_id?: string }): TurmaResponseDto {

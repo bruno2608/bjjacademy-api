@@ -15,6 +15,7 @@ import {
   ApiOperation,
   ApiTags,
   ApiCreatedResponse,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { ApiAuth } from '../../common/decorators/api-auth.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -48,6 +49,18 @@ export class TurmasController {
   )
   @ApiOperation({ summary: 'Lista turmas cadastradas' })
   @ApiOkResponse({ type: [TurmaResponseDto] })
+  @ApiQuery({
+    name: 'includeDeleted',
+    required: false,
+    description: 'Inclui turmas deletadas (somente staff). Ignorado se onlyDeleted=true.',
+    type: Boolean,
+  })
+  @ApiQuery({
+    name: 'onlyDeleted',
+    required: false,
+    description: 'Retorna apenas turmas deletadas (somente staff).',
+    type: Boolean,
+  })
   async listar(
     @CurrentUser() user: CurrentUserPayload,
     @Query() query: ListTurmasQueryDto,
@@ -105,5 +118,20 @@ export class TurmasController {
   ): Promise<{ success: true }> {
     await this.turmasService.remover(id, user);
     return { success: true };
+  }
+
+  @Post(':id/restore')
+  @Roles(UserRole.INSTRUTOR, UserRole.PROFESSOR, UserRole.ADMIN, UserRole.TI)
+  @ApiOperation({
+    summary: 'Restaura turma soft-deletada',
+    description:
+      'Desfaz o soft-delete, reativando a turma. Conflita se ja existir turma ativa com o mesmo nome.',
+  })
+  @ApiOkResponse({ type: TurmaResponseDto })
+  async restaurar(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<TurmaResponseDto> {
+    return this.turmasService.restaurar(id, user);
   }
 }
