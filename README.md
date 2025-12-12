@@ -79,7 +79,7 @@ curl http://localhost:3000/v1/checkin/disponiveis \
 ```
 
 ## Home vs Dashboard
-- **Home (`/v1/home`)**: tela inicial agregada. Modo padrao = `STAFF` se o token tiver algum papel staff (PROFESSOR/INSTRUTOR/ADMIN/TI); senao `ALUNO`. Aceita override `?mode=aluno|staff` respeitando os papeis em `roles`.
+- **Home (`/v1/home`)**: tela inicial agregada. O query `mode` e opcional; se omitido, o backend escolhe automaticamente (`STAFF` se o token tiver papel staff — PROFESSOR/INSTRUTOR/ADMIN/TI — senao `ALUNO`). Aceita override `?mode=aluno|staff` respeitando os papeis em `roles`.
 - **Dashboard (`/v1/dashboard/aluno`, `/v1/dashboard/staff`)**: KPIs/analytics dedicados, sem agregacao adicional.
 
 Exemplos:

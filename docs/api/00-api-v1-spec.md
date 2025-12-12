@@ -166,6 +166,7 @@ curl http://localhost:3000/v1/auth/me \
 #### 3.2.0 GET `/home`
 
 - **Descricao**: home agregada. Modo padrao: `STAFF` se o token tiver algum papel staff (`PROFESSOR`/`INSTRUTOR`/`ADMIN`/`TI`), senao `ALUNO`. Override opcional via `?mode=aluno|staff` respeitando `roles` do token.
+- **Query `mode`**: opcional; se omitido, o backend escolhe automaticamente (`STAFF` se houver papel staff no token, senao `ALUNO`).
 - **Auth/Roles**: qualquer usuario autenticado com o papel solicitado (`mode=staff` requer papel staff; `mode=aluno` requer ALUNO em `roles`).
 - **Retorna**:
   - `mode`: `ALUNO` ou `STAFF`
