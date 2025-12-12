@@ -17,8 +17,9 @@ Documento de referencia rapida da API v1 do ecossistema **BJJAcademy / BJJAcadem
 - **Base URL / versao**: todas as rotas sao servidas em `/v1` (ex.: `http://localhost:3000/v1`).
 - **Formato**: JSON; headers padrao `Content-Type: application/json; charset=utf-8`.
 - **Autenticacao**: Bearer JWT no header `Authorization: Bearer <token>`.
-- **Swagger/Authorize**: em `/v1/docs`, clique em **Authorize** (esquema `JWT`) e cole apenas o `accessToken` (sem `Bearer`); o Swagger prefixa o header e so envia para rotas anotadas com `@ApiBearerAuth('JWT')`.
+- **Swagger/Authorize**: em `/v1/docs`, clique em **Authorize** (esquema `JWT`) e cole apenas o `accessToken` (sem `Bearer`); o Swagger prefixa o header e so envia para rotas anotadas com `@ApiBearerAuth('JWT')` (via `@ApiAuth()`). A opcao `persistAuthorization: true` mantem o token apos refresh da pagina.
 - **Multi-tenant**: todas as consultas devem ser filtradas pelo `academiaId` presente no JWT (dashboards, presencas, regras, etc.).
+- **Timezone (\"hoje\")**: o backend calcula a janela [startUtc, endUtc) usando `APP_TIMEZONE` (padrao `America/Sao_Paulo`) via SQL `date_trunc`. Endpoints que usam isso: `GET /v1/aulas/hoje` e contadores de `GET /v1/dashboard/staff`. Futuro: ler timezone por academia.
 - **Claims do JWT** (emitido no login):
   - `sub`: id do usuario (`usuarios.id`)
   - `email`
@@ -169,6 +170,7 @@ curl http://localhost:3000/v1/auth/me \
 
 - **Roles:** `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI` (aluno bloqueado).
 - **Multi-tenant:** todos os contadores filtram pelo `academiaId` do JWT.
+- **Timezone:** contas de hoje usam janela [startUtc, endUtc) calculada com `APP_TIMEZONE`.
 - **Retorna:** `alunosAtivos` (matriculas `ATIVA`), `aulasHoje` (aulas da academia na data atual), `presencasHoje` e `faltasHoje` (status em `presencas` para aulas do dia).
 - **Exemplo de resposta (seeds, data fora do calendario de aulas):**
   ```json
@@ -277,7 +279,7 @@ curl http://localhost:3000/v1/auth/me \
 
 #### 3.4.2 GET `/aulas/hoje`
 - **Roles:** `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI`.
-- **Multi-tenant:** filtra `aulas` pelo `academiaId` e `date(data_inicio) = current_date`, ignorando `CANCELADA`.
+- **Multi-tenant + timezone:** filtra `aulas` pelo `academiaId` e pela janela [startUtc, endUtc) calculada com `APP_TIMEZONE` (padrao `America/Sao_Paulo`), ignorando `CANCELADA`.
 - **Retorna:** `id`, `dataInicio`, `dataFim`, `status`, `turmaId`, `turmaNome`, `turmaHorarioPadrao`, `tipoTreino`, `instrutorNome`.
 - **Observacao:** se nao ha aulas no dia (ex.: seeds acabam em 2025-11), retorna `[]`.
 - **Exemplo de estrutura (aula da seed):**
@@ -348,3 +350,8 @@ Todas as contas abaixo pertencem a **Academia Seed BJJ** (scripts em `sql/002-se
 - `ti.seed@example.com` / `SenhaTi123` — TI (tambem ALUNO)
 
 > Nota: se `JWT_SECRET` for alterado, todos os tokens emitidos antes da troca deixam de ser validos.
+
+## 7. SSL (Supabase) e variaveis de ambiente
+
+- DEV/POC: use `PG_SSL=true` e `PG_SSL_REJECT_UNAUTHORIZED=false` para evitar `self-signed certificate in certificate chain` ao conectar no Supabase. Em conexoes locais (`localhost`) o SSL e desabilitado automaticamente.
+- PRODUCAO (TODO): usar verify-full com o CA do Supabase (`PG_SSL=true`, `PG_SSL_REJECT_UNAUTHORIZED=true`, `SUPABASE_CA_CERT_PATH` apontando para o certificado baixado). A carga do CA e configuracao de `ssl.ca` sera implementada no passo 3B.

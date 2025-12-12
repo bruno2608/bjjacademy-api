@@ -24,6 +24,10 @@ export class AulasService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   async listarHoje(currentUser: CurrentUser): Promise<AulaDto[]> {
+    const tz = this.databaseService.getAppTimezone();
+    const { startUtc, endUtc } =
+      await this.databaseService.getTodayBoundsUtc(tz);
+
     const aulas = await this.databaseService.query<AulaRow>(
       `
         select
@@ -41,11 +45,12 @@ export class AulasService {
         join tipos_treino tt on tt.id = t.tipo_treino_id
         left join usuarios instrutor on instrutor.id = t.instrutor_padrao_id
         where a.academia_id = $1
-          and date(a.data_inicio) = current_date
+          and a.data_inicio >= $2
+          and a.data_inicio < $3
           and a.status <> 'CANCELADA'
         order by a.data_inicio asc;
       `,
-      [currentUser.academiaId],
+      [currentUser.academiaId, startUtc, endUtc],
     );
 
     return aulas.map((aula) => ({

@@ -178,6 +178,10 @@ export class DashboardService {
 
   async getStaffDashboard(user: CurrentUser): Promise<StaffDashboardDto> {
     try {
+      const tz = this.databaseService.getAppTimezone();
+      const { startUtc, endUtc } =
+        await this.databaseService.getTodayBoundsUtc(tz);
+
       const resumo = await this.databaseService.queryOne<{
         alunos_ativos: number;
         aulas_hoje: number;
@@ -189,7 +193,8 @@ export class DashboardService {
             select id
             from aulas
             where academia_id = $1
-              and date(data_inicio) = current_date
+              and data_inicio >= $2
+              and data_inicio < $3
           ),
           presencas_hoje as (
             select p.status
@@ -203,7 +208,7 @@ export class DashboardService {
             (select count(*) from presencas_hoje where status = 'PRESENTE')::int as presencas_hoje,
             (select count(*) from presencas_hoje where status = 'FALTA')::int as faltas_hoje;
         `,
-        [user.academiaId],
+        [user.academiaId, startUtc, endUtc],
       );
 
       return {

@@ -15,6 +15,11 @@ Preencha:
 - `DATABASE_URL=postgresql://...` (string do Supabase/Postgres; use `?sslmode=require` no Supabase)
 - `JWT_SECRET=chave-super-forte` (obrigatorio, nao commitar)
 - Opcionais: `JWT_EXPIRES_IN=1h`, `PORT=3000`
+- Timezone/SSL:
+  - `APP_TIMEZONE=America/Sao_Paulo` (usado para calcular janela de "hoje" em UTC)
+  - `PG_SSL=true` (default true para Supabase)
+  - `PG_SSL_REJECT_UNAUTHORIZED=false` (DEV/POC evita erro de self-signed)
+  - `SUPABASE_CA_CERT_PATH=` (usado apenas se futuramente habilitar verify-full em prod)
 
 ## Banco de dados (Supabase/Postgres)
 Aplicar os scripts na ordem:
@@ -42,6 +47,7 @@ Swagger: `http://localhost:3000/v1/docs`
 - No modal Authorize, cole somente o token; o esquema bearer monta `Authorization: Bearer <token>`.
 - O Swagger so envia o header para rotas anotadas com `@ApiBearerAuth('JWT')` (todas as privadas usam `@ApiAuth()` para isso).
 - Rode `GET /v1/auth/me` (ou outras rotas) e valide o 200.
+- O Swagger agora mantem o token entre refreshes (`persistAuthorization: true`).
 - Exemplo rapido (token tambem funciona no Swagger):
   ```bash
   # login
@@ -56,6 +62,15 @@ Swagger: `http://localhost:3000/v1/docs`
 
 ## Multi-tenant
 Todas as consultas devem ser filtradas pelo `academiaId` presente no JWT. Os dashboards ja aplicam esse filtro em matriculas, aulas, presencas e regras de graduacao.
+
+## Timezone e "hoje"
+- O backend calcula a janela de "hoje" com base em `APP_TIMEZONE` (padrao `America/Sao_Paulo`) usando SQL (`date_trunc`), gerando [startUtc, endUtc) para filtrar `aulas.data_inicio` (timestamptz).
+- Endpoints que usam "hoje": `GET /v1/aulas/hoje` e contadores do `GET /v1/dashboard/staff`.
+- Futuro multi-tenant: substituir por `academias.timezone` (TODO).
+
+## SSL com Supabase (DEV vs PROD)
+- DEV/POC: defina `PG_SSL=true` e `PG_SSL_REJECT_UNAUTHORIZED=false` para evitar o erro `self-signed certificate in certificate chain` no Supabase. Para conexoes locais (`localhost`) o SSL e desabilitado por padrao.
+- Producao (TODO): usar verify-full com o CA do Supabase (`PG_SSL=true`, `PG_SSL_REJECT_UNAUTHORIZED=true` e `SUPABASE_CA_CERT_PATH` apontando para o certificado baixado no dashboard). A leitura do CA e configuracao de `ssl.ca` sera implementada no passo 3B.
 
 ## Teste rapido (curl)
 ```bash
@@ -73,10 +88,6 @@ curl http://localhost:3000/v1/auth/me \
 curl http://localhost:3000/v1/dashboard/aluno \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 
-# Dashboard do staff (real, requer INSTRUTOR/PROFESSOR/ADMIN/TI)
-curl http://localhost:3000/v1/dashboard/staff \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-
 # Detalhe do aluno (ALUNO so pode o proprio id; staff consulta alunos da mesma academia)
 ALUNO_ID="<id-do-aluno-ou-do-proprio-usuario>"
 curl http://localhost:3000/v1/alunos/$ALUNO_ID \
@@ -92,6 +103,10 @@ curl http://localhost:3000/v1/turmas \
 
 # Aulas do dia (staff INSTRUTOR/PROFESSOR/ADMIN/TI)
 curl http://localhost:3000/v1/aulas/hoje \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# Dashboard staff (usa janela de hoje no timezone configurado)
+curl http://localhost:3000/v1/dashboard/staff \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 Exemplo de resposta com os seeds (sem aulas futuras depois de 2025-11):

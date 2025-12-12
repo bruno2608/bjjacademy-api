@@ -33,7 +33,11 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('v1/docs', app, document);
+  SwaggerModule.setup('v1/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 3000;

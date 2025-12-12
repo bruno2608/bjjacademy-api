@@ -7,9 +7,9 @@ Multi-tenant: sempre filtre consultas pelo `academiaId` presente no JWT.
 1. Suba a API (`npm run start:dev`) e abra `http://localhost:3000/v1/docs`.
 2. Chame `POST /v1/auth/login` com `email` e `senha`.
 3. Copie o `accessToken` retornado.
-4. Clique em **Authorize** (cadeado verde) e cole **exatamente** `Bearer <accessToken>`.
-5. Execute rotas protegidas (ex.: `GET /v1/auth/me`, `GET /v1/dashboard/aluno`, etc.).
-6. Sem o prefixo `Bearer` o Swagger retorna `401 Unauthorized` (comportamento validado).
+4. Clique em **Authorize** (cadeado verde) e cole **somente** o `accessToken` (sem prefixar `Bearer`); o esquema bearer monta `Authorization: Bearer <token>`.
+5. Execute rotas protegidas (ex.: `GET /v1/auth/me`, `GET /v1/dashboard/aluno`, etc.). O Swagger so envia o header se a rota tiver `@ApiBearerAuth('JWT')` (via `@ApiAuth()`).
+6. O token persiste apos refresh no Swagger (`persistAuthorization: true`).
 
 ### Body do login (confirmado)
 ```json
@@ -27,6 +27,11 @@ Campos aceitos: apenas `email` e `senha`.
 - Roles suportados: `ALUNO`, `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI`.
 - Um usuario pode ter mais de um papel na mesma academia (ex.: ADMIN tambem e ALUNO).
 - O JWT sempre traz **uma role efetiva** (usada nos guards) seguindo a regra atual do login: `TI > ADMIN > PROFESSOR > INSTRUTOR > ALUNO`.
+
+## 2.1) Timezone e \"hoje\"
+- `APP_TIMEZONE` (padrao `America/Sao_Paulo`) e usado para calcular a janela [startUtc, endUtc) via SQL (`date_trunc`), evitando depender do fuso do servidor.
+- Endpoints que usam essa janela: `GET /v1/aulas/hoje` e contadores do `GET /v1/dashboard/staff`.
+- Futuro: ler timezone por academia (campo `academias.timezone`).
 
 ## 3) Fluxo validado (curl)
 ```bash
@@ -223,3 +228,8 @@ Todas pertencem a **Academia Seed BJJ**.
 - PROFESSOR: `professor.seed@example.com` / `SenhaProfessor123`
 - ADMIN: `admin.seed@example.com` / `SenhaAdmin123`
 - TI: `ti.seed@example.com` / `SenhaTi123`
+- Se alterar `JWT_SECRET`, todos os tokens emitidos antes da troca deixam de funcionar.
+
+## 8) SSL (Supabase) e ambiente
+- DEV/POC: use `PG_SSL=true` e `PG_SSL_REJECT_UNAUTHORIZED=false` para evitar o erro `self-signed certificate in certificate chain` em conexoes Supabase. Para `localhost`, o SSL e desabilitado automaticamente.
+- PRODUCAO (TODO): habilitar verify-full com CA do Supabase (`PG_SSL=true`, `PG_SSL_REJECT_UNAUTHORIZED=true`, `SUPABASE_CA_CERT_PATH` apontando para o certificado baixado). A carga do CA e configuracao de `ssl.ca` sera implementada na etapa 3B.
