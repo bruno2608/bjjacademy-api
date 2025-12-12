@@ -1,78 +1,62 @@
 # BJJAcademy API v1
 
-Backend em NestJS para autenticação, check-ins, dashboards e gestão acadêmica da BJJAcademy/Codex.
+Backend NestJS para autenticar, gerir check-ins/dashboards e operar academias BJJAcademy/Codex. Prefixo global `/v1`, Swagger em `/v1/docs`.
 
-## Visão geral
-- Camada backend para PWA/app e painel administrativo da BJJAcademy.
-- Módulos principais: Auth & Onboarding, Dashboards, Check-in & Presenças, Alunos, Graduações, Configurações.
-- Documentação interativa via Swagger em `/v1/docs`.
+## Requisitos
+- Node.js 18+ e npm
+- Banco PostgreSQL (Supabase recomendado)
 
-## Stack
-- NestJS + TypeScript
-- PostgreSQL (Supabase recomendado)
-- `pg` + SQL raw com `DatabaseService` (sem ORM)
-- JWT com roles (`ALUNO`, `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI`)
-- Swagger/OpenAPI em `/v1/docs`
-
-## Pré-requisitos
-- Node.js 18+ (recomendado)
-- NPM ou Yarn
-- Banco PostgreSQL (local ou Supabase)
-- URL de conexão exemplo (ajuste host/credenciais):
-  - `postgresql://usuario:senha@host:5432/database?sslmode=require`
-
-## Configuração de ambiente
-- Use o `.env.example` como base.
-- Exemplo de `.env` (sem credenciais reais):
-  ```env
-  DATABASE_URL=postgresql://usuario:senha@host:5432/database?sslmode=require
-  JWT_SECRET=uma_chave_segura_aqui
-  JWT_EXPIRES_IN=1h
-  PORT=3000
-  ```
-
-## Subindo o banco de dados
-1. Crie o banco (local ou no Supabase).
-2. Execute os scripts em ordem (estão em `sql/`):
-   - `sql/001-init-schema.sql` (schema)
-   - `sql/002-seed-demo-completa.sql` (usuários/demo)
-   - `sql/003-seed-faixas-e-regras-base.sql` (faixas/regras)
-3. Exemplo genérico com `psql`:
-   ```bash
-   psql "$DATABASE_URL" -f sql/001-init-schema.sql
-   psql "$DATABASE_URL" -f sql/002-seed-demo-completa.sql
-   psql "$DATABASE_URL" -f sql/003-seed-faixas-e-regras-base.sql
-   ```
-
-## Instalação e execução
+## Instalacao e ambiente
 ```bash
 npm install
+cp .env.example .env
+```
+Preencha:
+- `DATABASE_URL=postgresql://...` (string do Supabase/Postgres; use `?sslmode=require` no Supabase)
+- `JWT_SECRET=chave-super-forte` (obrigatorio, nao commitar)
+- Opcionais: `JWT_EXPIRES_IN=1h`, `PORT=3000`
+
+## Banco de dados (Supabase/Postgres)
+Aplicar os scripts na ordem:
+1) `sql/001-init-schema.sql`
+2) `sql/003-seed-faixas-e-regras-base.sql`
+3) `sql/002-seed-demo-completa.sql`
+
+No Supabase: abra SQL Editor, cole cada arquivo e execute na ordem acima. Em Postgres local: `psql "$DATABASE_URL" -f sql/001-init-schema.sql` (repita para os demais).
+
+## Rodar a API
+```bash
 npm run start:dev
 ```
-- API padrão: `http://localhost:3000`
+Swagger: `http://localhost:3000/v1/docs`
 
-## Swagger / documentação da API
-- Acesse `http://localhost:3000/v1/docs`.
-- Fluxo típico para testar rotas protegidas:
-  1) Faça login em `POST /v1/auth/login`.
-  2) Copie o `accessToken`.
-  3) Clique em **Authorize** no Swagger.
-  4) Cole o token (com ou sem `Bearer`, conforme placeholder).
-  5) Teste `GET /v1/auth/me` e demais rotas protegidas.
+## Autenticacao no Swagger
+1) Faca login em `POST /v1/auth/login` com uma credencial seed.
+2) Copie o `accessToken`.
+3) Clique em **Authorize** (esquema `JWT`) e cole **exatamente** `Bearer <accessToken>`.
+4) Execute `GET /v1/auth/me` e demais rotas protegidas. Sem o prefixo `Bearer` o Swagger retorna `401 Unauthorized`.
 
-## Usuários seed para teste
-Senhas definidas em `sql/002-seed-demo-completa.sql`.
+## Teste rapido (curl)
+```bash
+# Login
+curl -X POST http://localhost:3000/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"aluno.seed@example.com","senha":"SenhaAluno123"}'
 
-- Aluno — email: `aluno.seed@example.com`, papel: `ALUNO`, senha: `SenhaAluno123`
-- Instrutor — email: `instrutor.seed@example.com`, papéis: `ALUNO` + `INSTRUTOR`, senha: `SenhaInstrutor123`
-- Professor — email: `professor.seed@example.com`, papéis: `ALUNO` + `PROFESSOR`, senha: `SenhaProfessor123`
-- Admin — email: `admin.seed@example.com`, papéis: `ALUNO` + `ADMIN`, senha: `SenhaAdmin123`
-- TI — email: `ti.seed@example.com`, papéis: `ALUNO` + `TI`, senha: `SenhaTi123`
+# Perfil autenticado
+ACCESS_TOKEN="<copie-do-login>"
+curl http://localhost:3000/v1/auth/me \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
 
-## Roadmap curto (MVP)
-- [x] Módulo Auth: login + `/auth/me`
-- [ ] Dashboard do Aluno: `/dashboard/aluno`
-- [ ] Dashboard do Staff: `/dashboard/staff`
-- [ ] Check-in: `/checkin/disponiveis` + `POST /checkin`
-- [ ] Gestão de presenças: `/presencas/*`
-- [ ] Graduações: `/alunos/:id/evolucao` + `/graduacoes`
+## Seed personas (Academia Seed BJJ)
+- ALUNO: `aluno.seed@example.com` / `SenhaAluno123`
+- INSTRUTOR: `instrutor.seed@example.com` / `SenhaInstrutor123`
+- PROFESSOR: `professor.seed@example.com` / `SenhaProfessor123`
+- ADMIN: `admin.seed@example.com` / `SenhaAdmin123`
+- TI: `ti.seed@example.com` / `SenhaTi123`
+
+## Estado atual da API
+- **Real (Postgres):** `POST /v1/auth/login`, `GET /v1/auth/me`, `GET /v1/auth/convite/:codigo`, `POST /v1/auth/register`.
+- **Stub/mock (retorno provisorio):** `GET /v1/dashboard/aluno`, `GET /v1/dashboard/staff`, `GET /v1/alunos`, `GET /v1/alunos/:id`, `GET /v1/alunos/:id/evolucao`, `GET /v1/turmas`, `GET /v1/aulas/hoje`, `GET /v1/aulas/:id/qrcode`, `GET /v1/checkin/disponiveis`, `POST /v1/checkin`, `GET /v1/presencas/pendencias`, `PATCH /v1/presencas/:id/status`, `GET /v1/alunos/:id/historico-presencas`, `GET /v1/config/*`, `POST /v1/invites`, `POST /v1/graduacoes`, `POST /v1/auth/refresh`, `POST /v1/auth/forgot-password`, `POST /v1/auth/reset-password`.
+- Prefixo global `/v1`; Swagger em `/v1/docs`.
