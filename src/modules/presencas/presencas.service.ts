@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -7,9 +8,10 @@ import {
 import { UserRole } from '../../common/enums/user-role.enum';
 import { DatabaseService } from '../../database/database.service';
 import { CheckinResponseDto } from '../checkin/dtos/checkin-response.dto';
+import { DecisaoPendenciaLoteDto } from './dtos/decisao-pendencia-lote.dto';
+import { DecisaoPendenciaDto } from './dtos/decisao-pendencia.dto';
 import { HistoricoPresencaDto } from './dtos/historico-presenca.dto';
 import { PresencaPendenteDto } from './dtos/presenca-pendente.dto';
-import { UpdatePresencaStatusDto } from './dtos/update-presenca-status.dto';
 
 export type CurrentUser = {
   id: string;
@@ -18,7 +20,7 @@ export type CurrentUser = {
   academiaId: string;
 };
 
-type PresencaPendenteRow = {
+type PendenciaRow = {
   id: string;
   aluno_id: string;
   aluno_nome: string;
@@ -26,7 +28,7 @@ type PresencaPendenteRow = {
   turma_nome: string;
   data_inicio: string;
   origem: 'MANUAL' | 'QR_CODE' | 'SISTEMA';
-  status: string;
+  criado_em: string;
 };
 
 type PresencaRow = {
@@ -38,6 +40,7 @@ type PresencaRow = {
   origem: 'MANUAL' | 'QR_CODE' | 'SISTEMA';
   criado_em: string;
   registrado_por: string | null;
+  aprovacao_status: 'PENDENTE' | 'APROVADA' | 'REJEITADA';
 };
 
 @Injectable()
@@ -46,12 +49,11 @@ export class PresencasService {
 
   async listarPendencias(
     currentUser: CurrentUser,
-  ): Promise<PresencaPendenteDto[]> {
-    const tz = this.databaseService.getAppTimezone();
-    const { startUtc, endUtc } =
-      await this.databaseService.getTodayBoundsUtc(tz);
+    filtros?: { date?: string; from?: string; to?: string },
+  ): Promise<{ total: number; itens: PresencaPendenteDto[] }> {
+    const range = await this.resolveDateRange(filtros);
 
-    const pendencias = await this.databaseService.query<PresencaPendenteRow>(
+    const pendencias = await this.databaseService.query<PendenciaRow>(
       `
         select
           p.id,
@@ -61,82 +63,140 @@ export class PresencasService {
           t.nome as turma_nome,
           a.data_inicio,
           p.origem,
-          p.status
+          p.criado_em
         from presencas p
         join aulas a on a.id = p.aula_id
         join turmas t on t.id = a.turma_id
         join usuarios u on u.id = p.aluno_id
         where p.academia_id = $1
           and a.academia_id = $1
-          and p.status = 'PENDENTE'
+          and p.aprovacao_status = 'PENDENTE'
           and a.data_inicio >= $2
           and a.data_inicio < $3
-        order by a.data_inicio asc;
+        order by a.data_inicio asc, p.criado_em asc
+        limit 100;
       `,
-      [currentUser.academiaId, startUtc, endUtc],
+      [currentUser.academiaId, range.startUtc, range.endUtc],
     );
 
-    return pendencias.map((row) => ({
-      id: row.id,
-      alunoId: row.aluno_id,
-      alunoNome: row.aluno_nome,
-      aulaId: row.aula_id,
-      turmaNome: row.turma_nome,
-      dataInicio: new Date(row.data_inicio).toISOString(),
-      origem: row.origem,
-      status: 'PENDENTE',
-    }));
+    return {
+      total: pendencias.length,
+      itens: pendencias.map((row) => ({
+        id: row.id,
+        alunoId: row.aluno_id,
+        alunoNome: row.aluno_nome,
+        aulaId: row.aula_id,
+        turmaNome: row.turma_nome,
+        dataInicio: new Date(row.data_inicio).toISOString(),
+        origem: row.origem,
+        status: 'PENDENTE',
+        criadoEm: new Date(row.criado_em).toISOString(),
+        aprovacaoStatus: 'PENDENTE',
+      })),
+    };
   }
 
-  async atualizarStatus(
+  async decidir(
     id: string,
-    dto: UpdatePresencaStatusDto,
+    dto: DecisaoPendenciaDto,
     currentUser: CurrentUser,
   ): Promise<CheckinResponseDto> {
-    const existente = await this.databaseService.queryOne<PresencaRow>(
-      `
-        select id, academia_id, aula_id, aluno_id, status, origem, criado_em, registrado_por
-        from presencas
-        where id = $1
-        limit 1;
-      `,
-      [id],
-    );
+    const presenca = await this.buscarPresenca(id);
 
-    if (!existente) {
+    if (!presenca) {
       throw new NotFoundException('Presenca nao encontrada');
     }
 
-    if (existente.academia_id !== currentUser.academiaId) {
-      throw new ForbiddenException(
-        'Presenca nao pertence a academia do usuario',
-      );
+    if (presenca.academia_id !== currentUser.academiaId) {
+      throw new ForbiddenException('Presenca nao pertence a academia do usuario');
     }
+
+    if (presenca.aprovacao_status !== 'PENDENTE') {
+      throw new ConflictException('Presenca ja foi decidida');
+    }
+
+    const decisao = dto.decisao === 'APROVAR' ? 'APROVADA' : 'REJEITADA';
 
     const atualizada = await this.databaseService.queryOne<PresencaRow>(
       `
         update presencas
-           set status = $1,
-               registrado_por = $2
-         where id = $3
-           and academia_id = $4
-         returning id, aula_id, aluno_id, status, origem, criado_em, registrado_por;
+           set aprovacao_status = $1,
+               aprovado_por = case when $1 = 'APROVADA' then $2 else null end,
+               aprovado_em = case when $1 = 'APROVADA' then now() else null end,
+               rejeitado_por = case when $1 = 'REJEITADA' then $2 else null end,
+               rejeitado_em = case when $1 = 'REJEITADA' then now() else null end,
+               aprovacao_observacao = $3
+         where id = $4
+           and academia_id = $5
+         returning id, aula_id, aluno_id, status, origem, criado_em, registrado_por, aprovacao_status;
       `,
-      [dto.status, currentUser.id, id, currentUser.academiaId],
+      [
+        decisao,
+        currentUser.id,
+        dto.observacao ?? null,
+        id,
+        currentUser.academiaId,
+      ],
     );
 
     if (!atualizada) {
       throw new NotFoundException('Presenca nao encontrada');
     }
 
+    return this.mapPresencaResponse(atualizada, currentUser.id);
+  }
+
+  async decidirLote(
+    dto: DecisaoPendenciaLoteDto,
+    currentUser: CurrentUser,
+  ): Promise<{
+    totalProcessados: number;
+    aprovados: number;
+    rejeitados: number;
+    ignorados: number;
+  }> {
+    const decisao = dto.decisao === 'APROVAR' ? 'APROVADA' : 'REJEITADA';
+
+    const result = await this.databaseService.queryOne<{
+      aprovados: number;
+      rejeitados: number;
+      ignorados: number;
+    }>(
+      `
+        with selecionadas as (
+          select id
+          from presencas
+          where id = any($1::uuid[])
+            and academia_id = $2
+            and aprovacao_status = 'PENDENTE'
+        ),
+        atualizadas as (
+          update presencas p
+             set aprovacao_status = $3,
+                 aprovado_por = case when $3 = 'APROVADA' then $4 else null end,
+                 aprovado_em = case when $3 = 'APROVADA' then now() else null end,
+                 rejeitado_por = case when $3 = 'REJEITADA' then $4 else null end,
+                 rejeitado_em = case when $3 = 'REJEITADA' then now() else null end,
+                 aprovacao_observacao = $5
+           where p.id in (select id from selecionadas)
+           returning aprovacao_status
+        )
+        select
+          sum(case when aprovacao_status = 'APROVADA' then 1 else 0 end)::int as aprovados,
+          sum(case when aprovacao_status = 'REJEITADA' then 1 else 0 end)::int as rejeitados,
+          0::int as ignorados
+        from atualizadas;
+      `,
+      [dto.ids, currentUser.academiaId, decisao, currentUser.id, dto.observacao ?? null],
+    );
+
+    const totalProcessados =
+      (result?.aprovados ?? 0) + (result?.rejeitados ?? 0);
     return {
-      id: atualizada.id,
-      aulaId: atualizada.aula_id,
-      alunoId: atualizada.aluno_id,
-      status: atualizada.status as CheckinResponseDto['status'],
-      origem: atualizada.origem,
-      criadoEm: new Date(atualizada.criado_em).toISOString(),
-      registradoPor: atualizada.registrado_por ?? undefined,
+      totalProcessados,
+      aprovados: result?.aprovados ?? 0,
+      rejeitados: result?.rejeitados ?? 0,
+      ignorados: dto.ids.length - totalProcessados,
     };
   }
 
@@ -151,6 +211,7 @@ export class PresencasService {
       'p.aluno_id = $1',
       'p.academia_id = $2',
       'a.academia_id = $2',
+      "p.aprovacao_status = 'APROVADA'",
     ];
     const params: (string | number)[] = [alunoId, currentUser.academiaId];
     let paramIndex = params.length;
@@ -212,7 +273,38 @@ export class PresencasService {
       tipoTreino: row.tipo_treino ?? null,
       status: row.status as HistoricoPresencaDto['status'],
       origem: row.origem,
+      aprovacaoStatus: 'APROVADA',
     }));
+  }
+
+  private async resolveDateRange(filters?: {
+    date?: string;
+    from?: string;
+    to?: string;
+  }): Promise<{ startUtc: Date; endUtc: Date }> {
+    const tz = this.databaseService.getAppTimezone();
+    if (!filters?.date && !filters?.from && !filters?.to) {
+      return this.databaseService.getTodayBoundsUtc(tz);
+    }
+
+    if (filters?.date) {
+      const start = new Date(`${filters.date}T00:00:00.000Z`);
+      if (Number.isNaN(start.getTime())) {
+        throw new BadRequestException('date invalida');
+      }
+      const end = new Date(start);
+      end.setUTCDate(end.getUTCDate() + 1);
+      return { startUtc: start, endUtc: end };
+    }
+
+    const from = filters?.from ? new Date(filters.from) : null;
+    const to = filters?.to ? new Date(filters.to) : null;
+    if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime()))) {
+      throw new BadRequestException('from/to invalidos');
+    }
+    const startUtc = from ?? (await this.databaseService.getTodayBoundsUtc(tz)).startUtc;
+    const endUtc = to ?? (await this.databaseService.getTodayBoundsUtc(tz)).endUtc;
+    return { startUtc, endUtc };
   }
 
   private async ensureAlunoScope(
@@ -269,5 +361,42 @@ export class PresencasService {
     }
 
     return value;
+  }
+
+  private async buscarPresenca(id: string): Promise<PresencaRow | null> {
+    return this.databaseService.queryOne<PresencaRow>(
+      `
+        select
+          id,
+          academia_id,
+          aula_id,
+          aluno_id,
+          status,
+          origem,
+          criado_em,
+          registrado_por,
+          aprovacao_status
+        from presencas
+        where id = $1
+        limit 1;
+      `,
+      [id],
+    );
+  }
+
+  private mapPresencaResponse(
+    presenca: PresencaRow,
+    registradoPor?: string,
+  ): CheckinResponseDto {
+    return {
+      id: presenca.id,
+      aulaId: presenca.aula_id,
+      alunoId: presenca.aluno_id,
+      status: presenca.status as CheckinResponseDto['status'],
+      origem: presenca.origem,
+      criadoEm: new Date(presenca.criado_em).toISOString(),
+      registradoPor: registradoPor ?? presenca.registrado_por ?? undefined,
+      aprovacaoStatus: presenca.aprovacao_status,
+    };
   }
 }

@@ -35,6 +35,7 @@ type AulaRow = {
   status: string;
   qr_token: string | null;
   qr_expires_at: string | null;
+  deleted_at: string | null;
 };
 
 @Injectable()
@@ -119,12 +120,18 @@ export class CheckinService {
       throw new ForbiddenException('Aula nao pertence a academia do usuario');
     }
 
+    if (aula.deleted_at) {
+      throw new UnprocessableEntityException('Aula nao disponivel para check-in');
+    }
+
     if (aula.status === 'CANCELADA') {
       throw new UnprocessableEntityException('Aula cancelada para check-in');
     }
 
     const jaExiste = await this.databaseService.queryOne<{
       id: string;
+      aprovacao_status?: string;
+      status?: string;
     }>(
       `
         select id
@@ -139,7 +146,7 @@ export class CheckinService {
 
     if (jaExiste) {
       throw new UnprocessableEntityException(
-        'Aluno ja realizou check-in nesta aula',
+        'Aluno ja possui presenca registrada para esta aula',
       );
     }
 
@@ -164,11 +171,20 @@ export class CheckinService {
         status: string;
         origem: 'MANUAL' | 'QR_CODE' | 'SISTEMA';
         criado_em: string;
+        aprovacao_status: 'PENDENTE' | 'APROVADA' | 'REJEITADA';
       }>(
         `
-          insert into presencas (academia_id, aula_id, aluno_id, status, origem, registrado_por)
-          values ($1, $2, $3, $4, $5, $6)
-          returning id, aula_id, aluno_id, status, origem, criado_em;
+          insert into presencas (
+            academia_id,
+            aula_id,
+            aluno_id,
+            status,
+            origem,
+            registrado_por,
+            aprovacao_status
+          )
+          values ($1, $2, $3, $4, $5, $6, 'PENDENTE')
+          returning id, aula_id, aluno_id, status, origem, criado_em, aprovacao_status;
         `,
         [
           currentUser.academiaId,
@@ -192,11 +208,12 @@ export class CheckinService {
         origem: presenca.origem,
         criadoEm: new Date(presenca.criado_em).toISOString(),
         registradoPor: currentUser.id,
+        aprovacaoStatus: presenca.aprovacao_status,
       };
     } catch (error: any) {
       if (error?.code === '23505') {
         throw new UnprocessableEntityException(
-          'Aluno ja realizou check-in nesta aula',
+          'Aluno ja possui presenca registrada para esta aula',
         );
       }
       throw error;

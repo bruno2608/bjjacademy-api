@@ -3,8 +3,10 @@ import {
   Controller,
   Get,
   Param,
-  Patch,
   ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -16,8 +18,9 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CheckinResponseDto } from '../checkin/dtos/checkin-response.dto';
 import { CurrentUser, PresencasService } from './presencas.service';
+import { DecisaoPendenciaLoteDto } from './dtos/decisao-pendencia-lote.dto';
+import { DecisaoPendenciaDto } from './dtos/decisao-pendencia.dto';
 import { PresencaPendenteDto } from './dtos/presenca-pendente.dto';
-import { UpdatePresencaStatusDto } from './dtos/update-presenca-status.dto';
 
 @ApiTags('Presencas')
 @ApiAuth()
@@ -28,23 +31,69 @@ export class PresencasController {
 
   @Get('pendencias')
   @Roles(UserRole.INSTRUTOR, UserRole.PROFESSOR, UserRole.ADMIN, UserRole.TI)
-  @ApiOperation({ summary: 'Lista presenças pendentes' })
-  @ApiOkResponse({ type: [PresencaPendenteDto] })
+  @ApiOperation({ summary: 'Lista pendencias de presenca (hoje por default)' })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        total: 1,
+        itens: [
+          {
+            presencaId: 'uuid',
+            alunoId: 'uuid',
+            alunoNome: 'Aluno Seed',
+            aulaId: 'uuid',
+            turmaNome: 'Adulto Gi Noite',
+            dataInicio: '2025-12-12T22:00:00.000Z',
+            origem: 'QR_CODE',
+            criadoEm: '2025-12-12T21:55:00.000Z',
+          },
+        ],
+      },
+    },
+  })
   async listarPendencias(
     @CurrentUserDecorator() user: CurrentUser,
-  ): Promise<PresencaPendenteDto[]> {
-    return this.presencasService.listarPendencias(user);
+    @Query('date') date?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<{ total: number; itens: PresencaPendenteDto[] }> {
+    return this.presencasService.listarPendencias(user, { date, from, to });
   }
 
-  @Patch(':id/status')
+  @Patch(':id/decisao')
   @Roles(UserRole.INSTRUTOR, UserRole.PROFESSOR, UserRole.ADMIN, UserRole.TI)
-  @ApiOperation({ summary: 'Atualiza status de presença' })
+  @ApiOperation({ summary: 'Decide pendencia de presenca (aprovar/rejeitar)' })
   @ApiOkResponse({ type: CheckinResponseDto })
-  async atualizarStatus(
+  async decidir(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdatePresencaStatusDto,
+    @Body() dto: DecisaoPendenciaDto,
     @CurrentUserDecorator() user: CurrentUser,
   ): Promise<CheckinResponseDto> {
-    return this.presencasService.atualizarStatus(id, dto, user);
+    return this.presencasService.decidir(id, dto, user);
+  }
+
+  @Post('pendencias/lote')
+  @Roles(UserRole.INSTRUTOR, UserRole.PROFESSOR, UserRole.ADMIN, UserRole.TI)
+  @ApiOperation({ summary: 'Decide pendencias em lote' })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        totalProcessados: 2,
+        aprovados: 2,
+        rejeitados: 0,
+        ignorados: 0,
+      },
+    },
+  })
+  async decidirLote(
+    @Body() dto: DecisaoPendenciaLoteDto,
+    @CurrentUserDecorator() user: CurrentUser,
+  ): Promise<{
+    totalProcessados: number;
+    aprovados: number;
+    rejeitados: number;
+    ignorados: number;
+  }> {
+    return this.presencasService.decidirLote(dto, user);
   }
 }

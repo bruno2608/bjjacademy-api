@@ -85,17 +85,20 @@ export class HomeService {
         academiaId: currentUser.academiaId,
       });
 
-      const pendenciasItens = await this.presencasService.listarPendencias({
-        ...currentUser,
-        roles: rolesNormalized,
-      });
+      const pendencias = await this.presencasService.listarPendencias(
+        {
+          ...currentUser,
+          roles: rolesNormalized,
+        },
+        {},
+      );
 
       base.staff = {
         dashboard: staffDashboard,
         aulasHoje,
         pendencias: {
-          total: pendenciasItens.length,
-          itens: pendenciasItens.map((item) => ({
+          total: pendencias.total,
+          itens: pendencias.itens.slice(0, 10).map((item) => ({
             presencaId: item.id,
             aulaId: item.aulaId,
             alunoId: item.alunoId,

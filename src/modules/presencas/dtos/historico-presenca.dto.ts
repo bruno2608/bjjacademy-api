@@ -21,4 +21,7 @@ export class HistoricoPresencaDto {
 
   @ApiProperty({ enum: ['MANUAL', 'QR_CODE', 'SISTEMA'] })
   origem: 'MANUAL' | 'QR_CODE' | 'SISTEMA';
+
+  @ApiProperty({ enum: ['PENDENTE', 'APROVADA', 'REJEITADA'], required: false })
+  aprovacaoStatus?: 'PENDENTE' | 'APROVADA' | 'REJEITADA';
 }

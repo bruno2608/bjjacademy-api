@@ -187,6 +187,7 @@ export class DashboardService {
         aulas_hoje: number;
         presencas_hoje: number;
         faltas_hoje: number;
+        pendencias_hoje: number;
       }>(
         `
           with aulas_hoje as (
@@ -195,9 +196,10 @@ export class DashboardService {
             where academia_id = $1
               and data_inicio >= $2
               and data_inicio < $3
+              and deleted_at is null
           ),
           presencas_hoje as (
-            select p.status
+            select p.status, p.aprovacao_status
             from presencas p
             where p.academia_id = $1
               and p.aula_id in (select id from aulas_hoje)
@@ -205,8 +207,9 @@ export class DashboardService {
           select
             (select count(*) from matriculas m where m.academia_id = $1 and m.status = 'ATIVA')::int as alunos_ativos,
             (select count(*) from aulas_hoje)::int as aulas_hoje,
-            (select count(*) from presencas_hoje where status = 'PRESENTE')::int as presencas_hoje,
-            (select count(*) from presencas_hoje where status = 'FALTA')::int as faltas_hoje;
+            (select count(*) from presencas_hoje where status = 'PRESENTE' and aprovacao_status = 'APROVADA')::int as presencas_hoje,
+            (select count(*) from presencas_hoje where status = 'FALTA' and aprovacao_status = 'APROVADA')::int as faltas_hoje,
+            (select count(*) from presencas_hoje where aprovacao_status = 'PENDENTE')::int as pendencias_hoje;
         `,
         [user.academiaId, startUtc, endUtc],
       );
@@ -216,6 +219,7 @@ export class DashboardService {
         aulasHoje: resumo?.aulas_hoje ?? 0,
         presencasHoje: resumo?.presencas_hoje ?? 0,
         faltasHoje: resumo?.faltas_hoje ?? 0,
+        pendenciasHoje: resumo?.pendencias_hoje ?? 0,
       };
     } catch (error) {
       throw new InternalServerErrorException(

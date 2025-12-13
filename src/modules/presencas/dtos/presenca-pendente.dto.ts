@@ -24,4 +24,10 @@ export class PresencaPendenteDto {
 
   @ApiProperty()
   status: 'PENDENTE';
+
+  @ApiProperty()
+  criadoEm: string;
+
+  @ApiProperty({ enum: ['PENDENTE', 'APROVADA', 'REJEITADA'] })
+  aprovacaoStatus: 'PENDENTE' | 'APROVADA' | 'REJEITADA';
 }

@@ -13,6 +13,9 @@ export class CheckinResponseDto {
   @ApiProperty({ enum: ['PENDENTE', 'PRESENTE', 'FALTA', 'JUSTIFICADA', 'AJUSTADO'] })
   status: 'PENDENTE' | 'PRESENTE' | 'FALTA' | 'JUSTIFICADA' | 'AJUSTADO';
 
+  @ApiProperty({ enum: ['PENDENTE', 'APROVADA', 'REJEITADA'], required: false })
+  aprovacaoStatus?: 'PENDENTE' | 'APROVADA' | 'REJEITADA';
+
   @ApiProperty({ enum: ['MANUAL', 'QR_CODE', 'SISTEMA'] })
   origem: 'MANUAL' | 'QR_CODE' | 'SISTEMA';
 

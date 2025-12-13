@@ -12,4 +12,7 @@ export class StaffDashboardDto {
 
   @ApiProperty()
   faltasHoje: number;
+
+  @ApiProperty({ description: 'Pendencias de presenca aguardando aprovacao (hoje)' })
+  pendenciasHoje: number;
 }

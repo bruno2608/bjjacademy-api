@@ -213,16 +213,20 @@ where a.codigo_convite = 'BJJ-SEED1'
   );
 
 -- Aula garantida "hoje" para cenários de teste (se não existir ainda)
+with hoje as (
+  select (date_trunc('day', now() at time zone 'America/Sao_Paulo')) at time zone 'America/Sao_Paulo' as dia
+)
 insert into aulas (academia_id, turma_id, data_inicio, data_fim, status, qr_token, qr_expires_at)
 select
   a.id as academia_id,
   t.id as turma_id,
-  (current_date + time '19:00')::timestamptz as data_inicio,
-  (current_date + time '20:30')::timestamptz as data_fim,
+  (h.dia + time '19:00') as data_inicio,
+  (h.dia + time '20:30') as data_fim,
   'AGENDADA' as status,
   null,
   null
 from academias a
+cross join hoje h
 join turmas t
   on t.academia_id = a.id
  and t.nome = 'Adulto Gi Noite'
@@ -230,8 +234,57 @@ where a.codigo_convite = 'BJJ-SEED1'
   and not exists (
     select 1 from aulas au
     where au.turma_id = t.id
-      and au.data_inicio::date = current_date
+      and au.data_inicio::date = h.dia::date
   );
+
+-- Presenca PENDENTE garantida na aula de hoje para teste rapido (aluno seed)
+with aula_hoje as (
+  select au.id as aula_id, au.academia_id
+  from aulas au
+  join turmas t on t.id = au.turma_id
+  join academias a on a.id = au.academia_id
+  cross join (select (date_trunc('day', now() at time zone 'America/Sao_Paulo'))::date as dia) h
+  where a.codigo_convite = 'BJJ-SEED1'
+    and t.nome = 'Adulto Gi Noite'
+    and au.data_inicio::date = h.dia
+  limit 1
+),
+aluno_seed as (
+  select id as aluno_id
+  from usuarios
+  where email = 'aluno.seed@example.com'
+  limit 1
+)
+update presencas p
+set status = 'PENDENTE',
+    origem = coalesce(p.origem, 'QR_CODE'),
+    registrado_por = (select aluno_id from aluno_seed),
+    aprovacao_status = 'PENDENTE',
+    aprovado_por = null,
+    aprovado_em = null,
+    rejeitado_por = null,
+    rejeitado_em = null,
+    aprovacao_observacao = null
+where p.academia_id = (select academia_id from aula_hoje)
+  and p.aula_id = (select aula_id from aula_hoje)
+  and p.aluno_id = (select aluno_id from aluno_seed);
+
+insert into presencas (academia_id, aula_id, aluno_id, status, origem, registrado_por, aprovacao_status)
+select
+  ah.academia_id,
+  ah.aula_id,
+  a.aluno_id,
+  'PENDENTE',
+  'QR_CODE',
+  a.aluno_id,
+  'PENDENTE'
+from aula_hoje ah, aluno_seed a
+where not exists (
+  select 1
+  from presencas p
+  where p.aula_id = ah.aula_id
+    and p.aluno_id = a.aluno_id
+);
 
 -- ============================
 -- 10) GRADUAÇÕES (FAIXA / GRAU)

@@ -87,6 +87,15 @@ curl http://localhost:3000/v1/checkin/disponiveis \
 - **Home (`/v1/home`)**: tela inicial agregada. O query `mode` e opcional; se omitido, o backend escolhe automaticamente (`STAFF` se o token tiver papel staff — PROFESSOR/INSTRUTOR/ADMIN/TI — senao `ALUNO`). Aceita override `?mode=aluno|staff` respeitando os papeis em `roles`.
 - **Dashboard (`/v1/dashboard/aluno`, `/v1/dashboard/staff`)**: KPIs/analytics dedicados, sem agregacao adicional.
 
+## Validacao rapida (5 minutos)
+1) Login (professor) e cole o `accessToken` em **Authorize** no Swagger.
+2) `/v1/home` (modo default staff) e `/v1/home?mode=aluno` (usa roles com ALUNO).
+3) `/v1/aulas/hoje` (staff).
+4) Login aluno e `POST /v1/checkin` (gera presenca PENDENTE do seed).
+5) `/v1/presencas/pendencias` (staff) → deve listar a pendencia do dia.
+6) `PATCH /v1/presencas/:id/decisao` (APROVAR/REJEITAR) → pendencia some.
+7) `/v1/home` (staff) reflete pendencias total e `/v1/dashboard/staff` atualiza contagens.
+
 Exemplos:
 ```bash
 # ALUNO (modo default aluno - sem query)
@@ -184,6 +193,35 @@ for i in {1..6}; do
     -H "Content-Type: application/json" \
     -d '{"email":"aluno.seed@example.com","senha":"SenhaAluno123"}';
 done
+```
+
+## Fluxo de check-in, pendencias e aprovacao
+- `GET /v1/checkin/disponiveis` (ALUNO): aulas do dia; ignora aulas/turmas deletadas e canceladas.
+- `POST /v1/checkin` (ALUNO): cria presenca `status=PRESENTE`, `aprovacao_status=PENDENTE` e `origem` conforme tipo (QR/MANUAL); bloqueia duplicidade.
+- `GET /v1/presencas/pendencias` (STAFF): pendencias do dia (timezone APP_TIMEZONE); retorna total + itens.
+- `PATCH /v1/presencas/:id/decisao` (STAFF): `decisao=APROVAR|REJEITAR`, registra quem/quando/observacao; pendencias aprovadas somem da lista.
+- `POST /v1/presencas/pendencias/lote` (STAFF): decide em lote (retorna contagem).
+
+Exemplos rapidos (staff):
+```bash
+PROF_TOKEN="<token-professor>"
+
+# pendencias de hoje
+curl http://localhost:3000/v1/presencas/pendencias \
+  -H "Authorization: Bearer $PROF_TOKEN"
+
+# aprovar uma pendencia
+PRESENCA_ID="<id-da-pendencia>"
+curl -X PATCH http://localhost:3000/v1/presencas/$PRESENCA_ID/decisao \
+  -H "Authorization: Bearer $PROF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"decisao":"APROVAR","observacao":"Presenca validada"}'
+
+# decidir em lote
+curl -X POST http://localhost:3000/v1/presencas/pendencias/lote \
+  -H "Authorization: Bearer $PROF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"ids":["'"$PRESENCA_ID"'"],"decisao":"REJEITAR","observacao":"Teste"}'
 ```
 
 ## Timezone e "hoje"
@@ -311,9 +349,10 @@ curl "http://localhost:3000/v1/alunos/$ALUNO_ID/historico-presencas?from=2025-01
 ## Seed personas (Academia Seed BJJ)
 - ALUNO: `aluno.seed@example.com` / `SenhaAluno123`
 - INSTRUTOR: `instrutor.seed@example.com` / `SenhaInstrutor123`
-- PROFESSOR: `professor.seed@example.com` / `SenhaProfessor123`
+- PROFESSOR: `professor.seed@example.com` / `SenhaProfessor123` (roles: `PROFESSOR` + `ALUNO`)
 - ADMIN: `admin.seed@example.com` / `SenhaAdmin123`
 - TI: `ti.seed@example.com` / `SenhaTi123`
+- Tokens trazem `roles` (lista completa) e `role` (principal). Trocar `JWT_SECRET` invalida tokens antigos.
 - Se alterar `JWT_SECRET`, todos os tokens antigos (emitidos antes da troca) deixam de funcionar.
 
 ## Estado atual da API
