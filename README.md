@@ -29,9 +29,11 @@ Preencha:
 ## Banco de dados (Supabase/Postgres)
 Aplicar os scripts na ordem:
 1) `sql/001-init-schema.sql`
-2) `sql/003-presencas-auditoria-decisao.sql` (nova auditoria de decisoes)
-3) `sql/003-seed-faixas-e-regras-base.sql`
-4) `sql/002-seed-demo-completa.sql`
+2) `sql/004-turmas-aulas-softdelete.sql`
+3) `sql/003-presencas-auditoria-decisao.sql` (nova auditoria de decisoes)
+4) `sql/005-tipos-treino-codigo.sql`
+5) `sql/003-seed-faixas-e-regras-base.sql`
+6) `sql/002-seed-demo-completa.sql`
 
 No Supabase: abra SQL Editor, cole cada arquivo e execute na ordem acima. Em Postgres local: `psql "$DATABASE_URL" -f sql/001-init-schema.sql` (repita para os demais).
 
@@ -131,6 +133,8 @@ Notas:
 - Escrita (STAFF: INSTRUTOR/PROFESSOR/ADMIN/TI): `POST /v1/turmas`, `PATCH /v1/turmas/:id`, `DELETE /v1/turmas/:id` (soft-delete com `deleted_at/deleted_by`).
 - Regra de delete: se houver aulas futuras nao deletadas, retorna `409` pedindo para cancelar/deletar as aulas primeiro.
 - Campos de retorno: inclui `tipoTreinoCor` e instrutor padrao.
+- `tipoTreinoId` (payload) usa o codigo configurado na academia (`gi`, `nogi`, `kids`, ...); se invalido, a API retorna `400` com os codigos disponiveis.
+- `instrutorPadraoId` (opcional) deve ser UUID valido de instrutor/professor/admin/ti na mesma academia.
 - Restore: `POST /v1/turmas/:id/restore` (staff) reativa a turma. Se ja existe turma ativa com o mesmo nome, retorna 409.
 
 Exemplos (professor):
@@ -141,7 +145,7 @@ ACCESS_TOKEN="<token-professor>"
 curl -X POST http://localhost:3000/v1/turmas \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"nome":"No-Gi Manha","tipoTreinoId":"<tipo-id>","diasSemana":[2,4],"horarioPadrao":"07:30","instrutorPadraoId":null}'
+  -d '{"nome":"Gi Manha","tipoTreinoId":"gi","diasSemana":[2,4],"horarioPadrao":"07:30","instrutorPadraoId":null}'
 
 # listar (sem deletadas)
 curl http://localhost:3000/v1/turmas \
@@ -161,6 +165,20 @@ curl -X PATCH http://localhost:3000/v1/turmas/<turmaId> \
 curl -X DELETE http://localhost:3000/v1/turmas/<turmaId> \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
+
+## Config (tipos de treino)
+- `GET /v1/config/tipos-treino` (staff) usa `tipos_treino` como fonte da academia do token e ordena por `codigo`.
+- Resposta: `id` (codigo humano: `gi`, `nogi`, `kids`), `uuid` interno, `nome`, `descricao`, `corIdentificacao`.
+- Seeds configuram `gi` (#3b82f6, "Treino com kimono"), `nogi` (#f97316, "Treino sem kimono") e `kids` (#22c55e, "Aulas infantis").
+- Use o `id/codigo` retornado como `tipoTreinoId` ao criar/editar turmas; codigos invalidos retornam `400` com a lista disponivel.
+- Exemplo (seed):
+  ```json
+  [
+    { "id": "gi", "uuid": "f127...6a1", "nome": "Gi Adulto", "descricao": "Treino com kimono", "corIdentificacao": "#3b82f6" },
+    { "id": "kids", "uuid": "e4a3...c92", "nome": "Kids", "descricao": "Aulas infantis", "corIdentificacao": "#22c55e" },
+    { "id": "nogi", "uuid": "72d8...8bf", "nome": "No-Gi Adulto", "descricao": "Treino sem kimono", "corIdentificacao": "#f97316" }
+  ]
+  ```
 
 ## Aulas (CRUD, listagens e lote)
 - Status validos: `AGENDADA`, `ENCERRADA`, `CANCELADA`. Soft-delete com `deleted_at`; includeDeleted/onlyDeleted so para staff.
@@ -427,6 +445,6 @@ curl "http://localhost:3000/v1/alunos/$ALUNO_ID/historico-presencas?from=2025-01
 - Se alterar `JWT_SECRET`, todos os tokens antigos (emitidos antes da troca) deixam de funcionar.
 
 ## Estado atual da API
-- **Real (Postgres):** `POST /v1/auth/login`, `GET /v1/auth/me`, `GET /v1/auth/convite/:codigo`, `POST /v1/auth/register`, `GET /v1/home`, `GET /v1/dashboard/aluno`, `GET /v1/dashboard/staff`, `GET /v1/alunos`, `GET /v1/alunos/:id`, `GET /v1/alunos/:id/evolucao`, `GET /v1/alunos/:id/historico-presencas`, `GET /v1/turmas`, `GET /v1/turmas/:id`, `POST /v1/turmas`, `PATCH /v1/turmas/:id`, `DELETE /v1/turmas/:id`, `POST /v1/turmas/:id/restore`, `GET /v1/aulas`, `GET /v1/aulas/:id`, `POST /v1/aulas`, `PATCH /v1/aulas/:id`, `DELETE /v1/aulas/:id`, `POST /v1/aulas/lote`, `GET /v1/aulas/hoje`, `GET /v1/aulas/:id/qrcode`, `GET /v1/checkin/disponiveis`, `POST /v1/checkin`, `GET /v1/presencas/pendencias`, `PATCH /v1/presencas/:id/decisao`, `POST /v1/presencas/pendencias/lote`.
-- **Stub/mock (retorno provisorio):** `GET /v1/config/*`, `POST /v1/invites`, `POST /v1/graduacoes`, `POST /v1/auth/refresh`, `POST /v1/auth/forgot-password`, `POST /v1/auth/reset-password`.
+- **Real (Postgres):** `POST /v1/auth/login`, `GET /v1/auth/me`, `GET /v1/auth/convite/:codigo`, `POST /v1/auth/register`, `GET /v1/home`, `GET /v1/dashboard/aluno`, `GET /v1/dashboard/staff`, `GET /v1/alunos`, `GET /v1/alunos/:id`, `GET /v1/alunos/:id/evolucao`, `GET /v1/alunos/:id/historico-presencas`, `GET /v1/config/tipos-treino`, `GET /v1/turmas`, `GET /v1/turmas/:id`, `POST /v1/turmas`, `PATCH /v1/turmas/:id`, `DELETE /v1/turmas/:id`, `POST /v1/turmas/:id/restore`, `GET /v1/aulas`, `GET /v1/aulas/:id`, `POST /v1/aulas`, `PATCH /v1/aulas/:id`, `DELETE /v1/aulas/:id`, `POST /v1/aulas/lote`, `GET /v1/aulas/hoje`, `GET /v1/aulas/:id/qrcode`, `GET /v1/checkin/disponiveis`, `POST /v1/checkin`, `GET /v1/presencas/pendencias`, `PATCH /v1/presencas/:id/decisao`, `POST /v1/presencas/pendencias/lote`.
+- **Stub/mock (retorno provisorio):** `GET /v1/config/regras-graduacao`, `PUT /v1/config/regras-graduacao/:faixaSlug`, `POST /v1/invites`, `POST /v1/graduacoes`, `POST /v1/auth/refresh`, `POST /v1/auth/forgot-password`, `POST /v1/auth/reset-password`.
 - Prefixo global `/v1`; Swagger em `/v1/docs`.

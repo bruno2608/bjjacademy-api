@@ -18,8 +18,12 @@ export class CreateTurmaDto {
   @IsNotEmpty()
   nome: string;
 
-  @ApiProperty({ description: 'UUID do tipo de treino' })
-  @IsUUID()
+  @ApiProperty({
+    description: 'Codigo do tipo de treino (ex.: gi, nogi, kids)',
+    example: 'gi',
+  })
+  @IsString()
+  @IsNotEmpty()
   tipoTreinoId: string;
 
   @ApiProperty({

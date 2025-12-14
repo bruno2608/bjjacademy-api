@@ -31,7 +31,7 @@ Documento de referencia rapida da API v1 do ecossistema **BJJAcademy / BJJAcadem
   - `academiaId`: academia atual do usuario
 - **Roles suportados**: `ALUNO`, `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI`.
   - Prioridade do papel principal quando o usuario tem multiplos papeis na mesma academia: `TI` > `ADMIN` > `PROFESSOR` > `INSTRUTOR` > `ALUNO`.
-- **Banco**: PostgreSQL (Supabase). Scripts de schema/seeds em `sql/` (ex.: `001-init-schema.sql`, `002-seed-demo-completa.sql`, `003-seed-faixas-e-regras-base.sql`).
+- **Banco**: PostgreSQL (Supabase). Scripts de schema/seeds em `sql/` (ex.: `001-init-schema.sql`, `005-tipos-treino-codigo.sql`, `002-seed-demo-completa.sql`, `003-seed-faixas-e-regras-base.sql`).
 - **Authorize no Swagger (passo a passo)**:
   1) Acesse `http://localhost:3000/v1/docs` e clique em **Authorize** (esquema `JWT`).
   2) Chame `POST /v1/auth/login` e copie somente o `accessToken` retornado.
@@ -324,6 +324,7 @@ Notas:
 - **Roles leitura:** `ALUNO` e staff (mesma academia). **Escrita:** `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI`.
 - **Soft-delete:** `deleted_at/deleted_by`; listagens ignoram deletadas por default. `includeDeleted`/`onlyDeleted` so para staff. `DELETE` retorna `409` se houver aulas futuras nao deletadas (cancele/dele-as antes).
 - **Campos (response):** `id`, `nome`, `tipoTreino`, `tipoTreinoCor`, `diasSemana` (0=Dom ... 6=Sab), `horarioPadrao` (HH:MM), `instrutorPadraoId`, `instrutorPadraoNome`, `deletedAt`.
+- **tipoTreinoId (payload):** codigo do tipo de treino na academia (`gi`, `nogi`, `kids`, ...). O backend resolve para o UUID interno e retorna `tipoTreino`/`tipoTreinoCor` do cadastro; codigo invalido retorna `400` com os codigos permitidos.
 - **Endpoints:** `GET /turmas`, `GET /turmas/:id`, `POST /turmas`, `PATCH /turmas/:id`, `DELETE /turmas/:id` (soft), `POST /turmas/:id/restore` (reativa; 409 se ja houver turma ativa com mesmo nome).
 - **Curls (staff):**
   ```bash
@@ -332,7 +333,7 @@ Notas:
   curl -X POST http://localhost:3000/v1/turmas \
     -H "Authorization: Bearer $ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
-    -d '{"nome":"No-Gi Manha","tipoTreinoId":"<tipo-id>","diasSemana":[2,4],"horarioPadrao":"07:30"}'
+    -d '{"nome":"Gi Manha","tipoTreinoId":"gi","diasSemana":[2,4],"horarioPadrao":"07:30"}'
   # listar (ignora deletadas)
   curl http://localhost:3000/v1/turmas -H "Authorization: Bearer $ACCESS_TOKEN"
   # detalhe
@@ -535,9 +536,23 @@ curl -X POST http://localhost:3000/v1/presencas/pendencias/lote \
 
 ### 3.6 Configuracoes
 
-- `GET /config/regras-graduacao` / `PUT /config/regras-graduacao/:faixaSlug` - regras de graduacao (planejado).
-- `GET /config/tipos-treino` - tipos/modalidades de treino (planejado).
-- `POST /invites` - geracao de convites (planejado).
+#### 3.6.1 GET `/config/tipos-treino` (real, staff)
+- Roles: `INSTRUTOR`, `PROFESSOR`, `ADMIN`, `TI` (filtra pela `academiaId` do token).
+- Fonte: tabela `tipos_treino` (multi-tenant). Ordenacao por `codigo`.
+- Payload de resposta: `id` = codigo humano (`gi`, `nogi`, `kids`), `uuid` interno, `nome`, `descricao`, `corIdentificacao`.
+- Exemplo (seed):
+  ```json
+  [
+    { "id": "gi", "uuid": "f127...6a1", "nome": "Gi Adulto", "descricao": "Treino com kimono", "corIdentificacao": "#3b82f6" },
+    { "id": "kids", "uuid": "e4a3...c92", "nome": "Kids", "descricao": "Aulas infantis", "corIdentificacao": "#22c55e" },
+    { "id": "nogi", "uuid": "72d8...8bf", "nome": "No-Gi Adulto", "descricao": "Treino sem kimono", "corIdentificacao": "#f97316" }
+  ]
+  ```
+- Turmas: `tipoTreinoId` nos POST/PATCH aceita os mesmos codigos; se invalido, retorna `400` com os codigos permitidos para a academia.
+
+#### 3.6.2 Outras rotas (planejado/stub)
+- `GET /config/regras-graduacao` / `PUT /config/regras-graduacao/:faixaSlug` - regras de graduacao.
+- `POST /invites` - geracao de convites.
 
 ---
 

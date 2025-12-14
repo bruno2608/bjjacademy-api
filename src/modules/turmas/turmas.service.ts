@@ -30,6 +30,13 @@ type TurmaRow = {
   deleted_at: string | null;
 };
 
+type TipoTreinoRow = {
+  id: string;
+  codigo: string;
+  nome: string;
+  cor_identificacao: string | null;
+};
+
 @Injectable()
 export class TurmasService {
   constructor(private readonly databaseService: DatabaseService) {}
@@ -104,7 +111,11 @@ export class TurmasService {
     currentUser: CurrentUser,
   ): Promise<TurmaResponseDto> {
     this.ensureStaff(currentUser);
-    await this.validarDependencias(dto, currentUser.academiaId);
+    const tipoTreino = await this.resolveTipoTreinoOrThrow(
+      dto.tipoTreinoId,
+      currentUser.academiaId,
+    );
+    await this.validarInstrutor(dto.instrutorPadraoId, currentUser.academiaId);
 
     const turma = await this.databaseService.queryOne<TurmaRow & { academia_id: string }>(
       `
@@ -129,7 +140,7 @@ export class TurmasService {
       `,
       [
         dto.nome,
-        dto.tipoTreinoId,
+        tipoTreino.id,
         dto.diasSemana,
         dto.horarioPadrao,
         dto.instrutorPadraoId ?? null,
@@ -141,10 +152,6 @@ export class TurmasService {
       throw new BadRequestException('Falha ao criar turma');
     }
 
-    const tipoTreino = await this.buscarTipoTreino(
-      dto.tipoTreinoId,
-      currentUser.academiaId,
-    );
     const instrutorNome = await this.buscarInstrutorNome(
       dto.instrutorPadraoId,
       currentUser.academiaId,
@@ -153,8 +160,8 @@ export class TurmasService {
     return {
       id: turma.id,
       nome: turma.nome,
-      tipoTreino: tipoTreino?.nome ?? '',
-      tipoTreinoCor: tipoTreino?.cor_identificacao ?? null,
+      tipoTreino: tipoTreino.nome,
+      tipoTreinoCor: tipoTreino.cor_identificacao ?? null,
       diasSemana: dto.diasSemana.map(Number),
       horarioPadrao: dto.horarioPadrao,
       instrutorPadraoId: dto.instrutorPadraoId ?? null,
@@ -177,7 +184,11 @@ export class TurmasService {
       throw new NotFoundException('Turma nao encontrada');
     }
 
-    await this.validarDependencias(dto, currentUser.academiaId);
+    const resolvedTipoTreino =
+      dto.tipoTreinoId !== undefined
+        ? await this.resolveTipoTreinoOrThrow(dto.tipoTreinoId, currentUser.academiaId)
+        : null;
+    await this.validarInstrutor(dto.instrutorPadraoId, currentUser.academiaId);
 
     const updates: string[] = [];
     const params: any[] = [];
@@ -191,7 +202,7 @@ export class TurmasService {
 
     if (dto.nome !== undefined) pushUpdate('nome', dto.nome);
     if (dto.tipoTreinoId !== undefined)
-      pushUpdate('tipo_treino_id', dto.tipoTreinoId);
+      pushUpdate('tipo_treino_id', resolvedTipoTreino!.id);
     if (dto.diasSemana !== undefined) pushUpdate('dias_semana', dto.diasSemana);
     if (dto.horarioPadrao !== undefined)
       pushUpdate('horario_padrao', dto.horarioPadrao);
@@ -385,55 +396,73 @@ export class TurmasService {
     );
   }
 
-  private async validarDependencias(
-    dto: {
-      tipoTreinoId?: string;
-      instrutorPadraoId?: string | null;
-    },
+  private async resolveTipoTreinoOrThrow(
+    codigo: string,
     academiaId: string,
-  ) {
-    if (dto.tipoTreinoId) {
-      const tipo = await this.buscarTipoTreino(dto.tipoTreinoId, academiaId);
-      if (!tipo) {
-        throw new NotFoundException('Tipo de treino nao encontrado');
-      }
-    }
+  ): Promise<TipoTreinoRow> {
+    const codigoNormalizado = codigo.toLowerCase();
+    const tipo = await this.databaseService.queryOne<TipoTreinoRow>(
+      `
+        select id, lower(codigo) as codigo, nome, cor_identificacao
+          from tipos_treino
+         where lower(codigo) = $1
+           and academia_id = $2
+         limit 1;
+      `,
+      [codigoNormalizado, academiaId],
+    );
 
-    if (dto.instrutorPadraoId) {
-      const instrutor = await this.databaseService.queryOne<{ usuario_id: string }>(
-        `
-          select usuario_id
-          from usuarios_papeis
-          where usuario_id = $1
-            and academia_id = $2
-            and papel in ('INSTRUTOR', 'PROFESSOR', 'ADMIN', 'TI')
-          limit 1;
-        `,
-        [dto.instrutorPadraoId, academiaId],
+    if (tipo) return tipo;
+
+    const codigos = await this.listarCodigosTipoTreino(academiaId);
+    if (!codigos.length) {
+      throw new BadRequestException(
+        'tipoTreinoId invalido. Nenhum tipo de treino configurado para a academia.',
       );
-
-      if (!instrutor) {
-        throw new NotFoundException(
-          'Instrutor nao encontrado na academia ou sem papel de staff',
-        );
-      }
     }
+
+    throw new BadRequestException(
+      `tipoTreinoId invalido. Use um dos codigos: ${codigos.join(', ')}`,
+    );
   }
 
-  private async buscarTipoTreino(
-    tipoTreinoId: string,
-    academiaId: string,
-  ): Promise<{ id: string; nome: string; cor_identificacao: string | null } | null> {
-    return this.databaseService.queryOne(
+  private async listarCodigosTipoTreino(academiaId: string): Promise<string[]> {
+    const rows = await this.databaseService.query<{ codigo: string }>(
       `
-        select id, nome, cor_identificacao
-        from tipos_treino
-        where id = $1
+        select lower(codigo) as codigo
+          from tipos_treino
+         where academia_id = $1
+         order by lower(codigo) asc;
+      `,
+      [academiaId],
+    );
+
+    return rows.map((row) => row.codigo);
+  }
+
+  private async validarInstrutor(
+    instrutorId: string | null | undefined,
+    academiaId: string,
+  ) {
+    if (!instrutorId) return;
+
+    const instrutor = await this.databaseService.queryOne<{ usuario_id: string }>(
+      `
+        select usuario_id
+        from usuarios_papeis
+        where usuario_id = $1
           and academia_id = $2
+          and papel in ('INSTRUTOR', 'PROFESSOR', 'ADMIN', 'TI')
         limit 1;
       `,
-      [tipoTreinoId, academiaId],
+      [instrutorId, academiaId],
     );
+
+    if (!instrutor) {
+      throw new NotFoundException(
+        'Instrutor nao encontrado na academia ou sem papel de staff',
+      );
+    }
   }
 
   private async buscarInstrutorNome(

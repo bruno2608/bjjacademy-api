@@ -26,19 +26,20 @@ values ('Academia Seed BJJ', 'BJJ-SEED1', true)
 on conflict (codigo_convite) do nothing;
 
 -- ============================
--- 3) TIPOS DE TREINO (GI / NO-GI)
+-- 3) TIPOS DE TREINO (GI / NO-GI / KIDS)
 -- ============================
 
-insert into tipos_treino (academia_id, nome, cor_identificacao)
-select a.id, x.nome, x.cor
+insert into tipos_treino (academia_id, codigo, nome, descricao, cor_identificacao)
+select a.id, x.codigo, x.nome, x.descricao, x.cor
 from academias a
 cross join (
   values
-    ('Gi Adulto',    '#3b82f6'),
-    ('No-Gi Adulto', '#f97316')
-) as x(nome, cor)
+    ('gi',   'Gi Adulto',    'Treino com kimono',  '#3b82f6'),
+    ('nogi', 'No-Gi Adulto', 'Treino sem kimono',  '#f97316'),
+    ('kids', 'Kids',         'Aulas infantis',     '#22c55e')
+) as x(codigo, nome, descricao, cor)
 where a.codigo_convite = 'BJJ-SEED1'
-on conflict (academia_id, nome) do nothing;
+on conflict (academia_id, codigo) do nothing;
 
 -- ============================
 -- 4) USUÁRIOS (1 por perfil)
@@ -175,7 +176,7 @@ select
 from academias a
 join tipos_treino tt
   on tt.academia_id = a.id
- and tt.nome = 'Gi Adulto'
+ and tt.codigo = 'gi'
 join usuarios instrutor
   on instrutor.email = 'instrutor.seed@example.com'
 where a.codigo_convite = 'BJJ-SEED1'
@@ -197,7 +198,7 @@ select
 from academias a
 join tipos_treino tt
   on tt.academia_id = a.id
- and tt.nome = 'No-Gi Adulto'
+ and tt.codigo = 'nogi'
 left join usuarios professor
   on professor.email = 'professor.seed@example.com'
 where a.codigo_convite = 'BJJ-SEED1'

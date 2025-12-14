@@ -3,6 +3,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsIn,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
@@ -17,9 +18,13 @@ export class UpdateTurmaDto {
   @IsString()
   nome?: string;
 
-  @ApiPropertyOptional({ description: 'UUID do tipo de treino' })
+  @ApiPropertyOptional({
+    description: 'Codigo do tipo de treino (ex.: gi, nogi, kids)',
+    example: 'nogi',
+  })
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   tipoTreinoId?: string;
 
   @ApiPropertyOptional({

@@ -5,11 +5,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiAuth } from '../../common/decorators/api-auth.decorator';
+import { CurrentUser } from '../../common/decorators/user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ConfigService } from './config.service';
+import { ConfigService, CurrentUser as CurrentUserPayload } from './config.service';
 import { RegraGraduacaoDto } from './dtos/regra-graduacao.dto';
 import { TipoTreinoDto } from './dtos/tipo-treino.dto';
 import { UpdateRegraGraduacaoDto } from './dtos/update-regra-graduacao.dto';
@@ -25,8 +26,10 @@ export class ConfigController {
   @Roles(UserRole.INSTRUTOR, UserRole.PROFESSOR, UserRole.ADMIN, UserRole.TI)
   @ApiOperation({ summary: 'Lista tipos/modalidades de treino' })
   @ApiOkResponse({ type: [TipoTreinoDto] })
-  async listarTipos(): Promise<TipoTreinoDto[]> {
-    return this.configService.listarTiposTreino();
+  async listarTipos(
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<TipoTreinoDto[]> {
+    return this.configService.listarTiposTreino(user);
   }
 
   @Get('regras-graduacao')

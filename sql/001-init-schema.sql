@@ -77,9 +77,12 @@ create table if not exists regras_graduacao (
 create table if not exists tipos_treino (
   id                uuid primary key default gen_random_uuid(),
   academia_id       uuid not null references academias (id),
+  codigo            varchar(50) not null,
   nome              varchar(50) not null,
+  descricao         text,
   cor_identificacao varchar(7),             -- #RRGGBB opcional
-  constraint uq_tipos_treino unique (academia_id, nome)
+  constraint uq_tipos_treino unique (academia_id, nome),
+  constraint uq_tipos_treino_codigo unique (academia_id, codigo)
 );
 
 -- ========================
