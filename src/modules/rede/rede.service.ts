@@ -9,6 +9,7 @@ import {
   RedeResponseDto,
   AcademiaRedeDto,
   VincularAcademiaResponseDto,
+  CreateRedeResponseDto,
 } from './dtos/rede.dto';
 
 type CurrentUser = {
@@ -205,4 +206,70 @@ export class RedeService {
       message: `Academia "${academia.nome}" vinculada à rede com sucesso`,
     };
   }
+
+  /**
+   * Create a new network and link the user's current academia to it
+   */
+  async createRede(
+    nome: string,
+    user: CurrentUser,
+  ): Promise<CreateRedeResponseDto> {
+    // Check if user is already a network admin
+    const existingAdmin = await this.databaseService.queryOne<{ rede_id: string }>(
+      `SELECT rede_id FROM redes_admins WHERE usuario_id = $1 LIMIT 1`,
+      [user.id],
+    );
+
+    if (existingAdmin) {
+      throw new BadRequestException('Você já é administrador de uma rede');
+    }
+
+    // Check if user's academia already belongs to a network
+    const academia = await this.databaseService.queryOne<{
+      id: string;
+      nome: string;
+      rede_id: string | null;
+    }>(
+      `SELECT id, nome, rede_id FROM academias WHERE id = $1`,
+      [user.academiaId],
+    );
+
+    if (!academia) {
+      throw new NotFoundException('Academia não encontrada');
+    }
+
+    if (academia.rede_id) {
+      throw new BadRequestException('Sua academia já pertence a uma rede');
+    }
+
+    // Create the network
+    const rede = await this.databaseService.queryOne<{ id: string }>(
+      `INSERT INTO redes (nome) VALUES ($1) RETURNING id`,
+      [nome],
+    );
+
+    if (!rede) {
+      throw new BadRequestException('Erro ao criar rede');
+    }
+
+    // Add user as network admin
+    await this.databaseService.query(
+      `INSERT INTO redes_admins (rede_id, usuario_id, papel) VALUES ($1, $2, 'ADMIN_REDE')`,
+      [rede.id, user.id],
+    );
+
+    // Link the academia to the network
+    await this.databaseService.query(
+      `UPDATE academias SET rede_id = $1 WHERE id = $2`,
+      [rede.id, user.academiaId],
+    );
+
+    return {
+      id: rede.id,
+      nome,
+      academiaVinculada: academia.nome,
+      message: `Rede "${nome}" criada com sucesso. "${academia.nome}" é a primeira filial.`,
+    };
+  }
 }
+

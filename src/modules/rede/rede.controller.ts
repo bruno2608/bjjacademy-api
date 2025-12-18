@@ -18,6 +18,8 @@ import {
   AcademiaRedeDto,
   VincularAcademiaDto,
   VincularAcademiaResponseDto,
+  CreateRedeDto,
+  CreateRedeResponseDto,
 } from './dtos/rede.dto';
 
 @ApiTags('Rede')
@@ -26,6 +28,16 @@ import {
 @Controller('rede')
 export class RedeController {
   constructor(private readonly redeService: RedeService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Cria uma nova rede e vincula a academia atual' })
+  @ApiOkResponse({ type: CreateRedeResponseDto })
+  async criarRede(
+    @Body() dto: CreateRedeDto,
+    @CurrentUser() user: { id: string; academiaId: string },
+  ): Promise<CreateRedeResponseDto> {
+    return this.redeService.createRede(dto.nome, user);
+  }
 
   @Get('me')
   @ApiOperation({ summary: 'Retorna dados da rede do admin autenticado' })
@@ -73,3 +85,4 @@ export class RedeController {
     return this.redeService.vincularAcademia(dto.codigoAcademia, user);
   }
 }
+

@@ -61,3 +61,25 @@ export class VincularAcademiaResponseDto {
   @ApiProperty()
   message: string;
 }
+
+export class CreateRedeDto {
+  @ApiProperty({ description: 'Nome da rede/franquia' })
+  @IsString()
+  @IsNotEmpty()
+  nome: string;
+}
+
+export class CreateRedeResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  nome: string;
+
+  @ApiProperty()
+  academiaVinculada: string;
+
+  @ApiProperty()
+  message: string;
+}
+
