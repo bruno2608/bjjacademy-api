@@ -202,14 +202,75 @@ export class AuthRepository {
     );
   }
 
-  async markInviteAsUsed(inviteId: string, usuarioId: string): Promise<void> {
+  async markInviteAsUsed(inviteId: string, usuarioId: string, ip?: string): Promise<void> {
     const query = `
       update convites
-      set used_at = now()
+      set used_at = now(), used_by_ip = $2
       where id = $1;
     `;
 
-    await this.databaseService.query(query, [inviteId]);
+    await this.databaseService.query(query, [inviteId, ip || null]);
+  }
+
+  /**
+   * Find invite by secure token (SHA256 hashed) + OTP + signature
+   * Used for the new secure magic link flow
+   */
+  async findInviteBySecureToken(
+    tokenHash: string,
+    otp: string,
+    signature: string,
+  ): Promise<{
+    id: string;
+    academia_id: string;
+    email: string;
+    papel_sugerido: UserRole;
+    expires_at: Date | null;
+    used_at: Date | null;
+    academia_nome: string;
+    validation_attempts: number;
+  } | null> {
+    const query = `
+      select
+        c.id,
+        c.academia_id,
+        c.email,
+        c.papel_sugerido,
+        c.expires_at,
+        c.used_at,
+        c.validation_attempts,
+        a.nome as academia_nome
+      from convites c
+      join academias a on a.id = c.academia_id
+      where c.token_hash = $1
+        and c.otp_code = $2
+        and c.signature = $3
+        and c.used_at is null
+        and (c.expires_at is null or c.expires_at > now())
+        and (c.validation_attempts is null or c.validation_attempts < 5)
+      limit 1;
+    `;
+
+    return this.databaseService.queryOne<{
+      id: string;
+      academia_id: string;
+      email: string;
+      papel_sugerido: UserRole;
+      expires_at: Date | null;
+      used_at: Date | null;
+      academia_nome: string;
+      validation_attempts: number;
+    }>(query, [tokenHash, otp, signature]);
+  }
+
+  /**
+   * Increment validation attempts for an invite (for rate limiting)
+   */
+  async incrementInviteAttempts(tokenHash: string): Promise<void> {
+    await this.databaseService.query(
+      `UPDATE convites SET validation_attempts = COALESCE(validation_attempts, 0) + 1 WHERE token_hash = $1`,
+      [tokenHash],
+    );
   }
 
   async createUserWithRoleAndMatricula(params: {

@@ -258,6 +258,100 @@ export class AuthService {
   }
 
   /**
+   * Register via secure magic link (token + OTP + signature)
+   * More secure than regular register - validates all 3 components
+   */
+  async registerWithSecureInvite(dto: {
+    token: string;
+    otp: string;
+    signature: string;
+    nomeCompleto: string;
+    senha: string;
+    aceitouTermos: boolean;
+    ip?: string;
+  }): Promise<AuthTokensDto> {
+    if (!dto.aceitouTermos) {
+      throw new BadRequestException('Aceite dos termos e obrigatorio');
+    }
+
+    // 1. Hash the token (we store SHA256 hash in DB)
+    const tokenHash = crypto.createHash('sha256').update(dto.token).digest('hex');
+
+    // 2. Find invite by secure token + OTP + signature
+    const invite = await this.authRepository.findInviteBySecureToken(
+      tokenHash,
+      dto.otp,
+      dto.signature,
+    );
+
+    if (!invite) {
+      // Increment attempts for rate limiting (use token hash)
+      await this.authRepository.incrementInviteAttempts(tokenHash);
+      throw new BadRequestException('Link invalido, expirado ou ja utilizado');
+    }
+
+    // 3. Check if email already exists
+    const existente = await this.authRepository.findUserByEmail(invite.email);
+    if (existente) {
+      throw new BadRequestException('Email ja cadastrado');
+    }
+
+    // 4. Create user
+    const senhaHash = await bcrypt.hash(dto.senha, 10);
+    const papelSugerido = this.normalizeRole(
+      (invite.papel_sugerido as string) ?? UserRole.ALUNO,
+    );
+
+    const novoUsuario = await this.authRepository.createUserWithRoleAndMatricula({
+      email: invite.email,
+      senhaHash,
+      nomeCompleto: dto.nomeCompleto,
+      aceitouTermos: dto.aceitouTermos,
+      academiaId: invite.academia_id,
+      papel: papelSugerido,
+      matriculaStatus: 'ATIVA', // Direct invite = ATIVA (not PENDENTE)
+    });
+
+    // 5. Mark invite as used
+    await this.authRepository.markInviteAsUsed(
+      invite.id,
+      novoUsuario.usuario_id,
+      dto.ip,
+    );
+
+    // 6. Send welcome email
+    this.emailService.sendWelcomeEmail(
+      invite.email,
+      dto.nomeCompleto,
+      invite.academia_nome,
+    ).catch(err => console.error('Error sending welcome email (secure invite):', err));
+
+    // 7. Generate tokens and return
+    const payload = {
+      sub: novoUsuario.usuario_id,
+      email: invite.email,
+      role: papelSugerido,
+      roles: [papelSugerido],
+      academiaId: invite.academia_id,
+    };
+
+    const refreshToken = await this.generateRefreshToken(novoUsuario.usuario_id, null, dto.ip || null, null);
+
+    return {
+      accessToken: this.jwtService.sign(payload),
+      refreshToken,
+      user: {
+        id: payload.sub,
+        nome: dto.nomeCompleto,
+        email: payload.email,
+        role: payload.role,
+        roles: payload.roles,
+        academiaId: payload.academiaId,
+      },
+    };
+  }
+
+  /**
    * Self-service signup with academy code (creates PENDENTE matricula)
    */
   async signup(dto: SignupDto): Promise<AuthTokensDto> {

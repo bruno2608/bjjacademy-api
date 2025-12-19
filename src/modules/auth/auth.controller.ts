@@ -17,6 +17,7 @@ import { LoginDto } from './dtos/login.dto';
 import { MeResponseDto } from './dtos/me-response.dto';
 import { RefreshTokenDto } from './dtos/refresh-token.dto';
 import { RegisterDto } from './dtos/register.dto';
+import { SecureInviteRegisterDto } from './dtos/secure-invite-register.dto';
 import { SignupDto } from './dtos/signup.dto';
 import {
   VerifyOtpDto,
@@ -79,10 +80,17 @@ export class AuthController {
   }
 
   @Post('register')
-  @ApiOperation({ summary: 'Conclui cadastro a partir de convite' })
+  @ApiOperation({ summary: 'Conclui cadastro a partir de convite (legado)' })
   @ApiCreatedResponse({ type: AuthTokensDto })
   async register(@Body() dto: RegisterDto): Promise<AuthTokensDto> {
     return this.authService.register(dto);
+  }
+
+  @Post('register-secure')
+  @ApiOperation({ summary: 'Cadastro via magic link seguro (token + OTP + signature)' })
+  @ApiCreatedResponse({ type: AuthTokensDto })
+  async registerSecure(@Body() dto: SecureInviteRegisterDto): Promise<AuthTokensDto> {
+    return this.authService.registerWithSecureInvite(dto);
   }
 
   @Post('signup')
