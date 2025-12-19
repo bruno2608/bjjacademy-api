@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://i.imgur.com/WdGink9.png" alt="Logo do Dojoro" width="220" />
+  <img src="https://i.imgur.com/1QjyN8y.png" alt="Logo do Dojoro" width="220" />
 
   <h1>Dojoro API 🥋</h1>
   <p>O sistema que organiza a vida da academia de Jiu-Jitsu. Do primeiro treino à faixa preta.</p>
