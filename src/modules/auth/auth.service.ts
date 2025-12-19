@@ -160,6 +160,26 @@ export class AuthService {
     };
   }
 
+  /**
+   * Validate academy code for self-service signup
+   */
+  async validateAcademiaCode(codigo: string): Promise<{
+    id: string;
+    nome: string;
+    valid: boolean;
+  }> {
+    const academia = await this.authRepository.findAcademiaByCode(codigo);
+    if (!academia) {
+      throw new NotFoundException('Academia nao encontrada');
+    }
+
+    return {
+      id: academia.id,
+      nome: academia.nome,
+      valid: true,
+    };
+  }
+
   async register(dto: RegisterDto): Promise<AuthTokensDto> {
     if (!dto.codigoConvite) {
       throw new BadRequestException('Codigo de convite e obrigatorio');

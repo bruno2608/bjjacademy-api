@@ -59,12 +59,23 @@ export class AuthController {
   }
 
   @Get('convite/:codigo')
-  @ApiOperation({ summary: 'Valida codigo de convite' })
+  @ApiOperation({ summary: 'Valida codigo de convite individual' })
   @ApiOkResponse({ type: InviteValidationDto })
   async validarConvite(
     @Param('codigo') codigo: string,
   ): Promise<InviteValidationDto> {
     return this.authService.validateInvite(codigo);
+  }
+
+  @Get('academia/:codigo')
+  @ApiOperation({ summary: 'Valida codigo de academia para self-service signup' })
+  @ApiOkResponse({ description: 'Academia encontrada' })
+  async validarAcademia(@Param('codigo') codigo: string): Promise<{
+    id: string;
+    nome: string;
+    valid: boolean;
+  }> {
+    return this.authService.validateAcademiaCode(codigo);
   }
 
   @Post('register')

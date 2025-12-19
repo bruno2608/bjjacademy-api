@@ -186,10 +186,17 @@ export class EmailService {
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); border: 1px solid #e1e8ed;">
                    <!-- Header/Logo -->
                   <tr>
-                    <td style="padding: 40px 40px 20px 40px; text-align: center;">
-                      <div style="display: inline-block; background-color: #1a365d; color: white; padding: 12px 20px; border-radius: 12px; font-weight: 800; font-size: 20px; letter-spacing: 2px;">
-                        DOJORO
-                      </div>
+                    <td style="padding: 40px 40px 20px 40px; text-align: center; background: linear-gradient(135deg, #0A0F1A 0%, #1a365d 100%);">
+                      <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                        <tr>
+                          <td style="vertical-align: middle; padding-right: 12px;">
+                            <img src="https://i.imgur.com/1QjyN8y.png" alt="Dojoro" width="44" height="44" style="display: block; border-radius: 10px;" />
+                          </td>
+                          <td style="vertical-align: middle;">
+                            <span style="color: white; font-weight: 700; font-size: 24px; letter-spacing: 3px;">DOJORO</span>
+                          </td>
+                        </tr>
+                      </table>
                     </td>
                   </tr>
                   
