@@ -66,8 +66,11 @@ Aplique os scripts na pasta `sql/` na ordem abaixo para configurar seu ambiente 
 9. `010-academias-settings.sql` – Configurações
 10. `011-redes.sql` – Estrutura de redes
 11. `012-refresh-tokens.sql` – Tokens de refresh
-12. `003-seed-faixas-e-regras-base.sql` – Padrão IBJJF
-13. `002-seed-demo-completa.sql` – Dados de demonstração
+12. `013-convites-secure.sql` – Convites seguros
+13. `014-perfil-completo.sql` – Campos de perfil
+14. `015-notificacoes.sql` – Sistema de notificações
+15. `003-seed-faixas-e-regras-base.sql` – Padrão IBJJF
+16. `002-seed-demo-completa.sql` – Dados de demonstração
 
 ---
 

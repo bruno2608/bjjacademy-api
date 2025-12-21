@@ -21,6 +21,7 @@ import { RedeModule } from './modules/rede/rede.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { EmailModule } from './modules/email/email.module';
+import { NotificacoesModule } from './modules/notificacoes/notificacoes.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { EmailModule } from './modules/email/email.module';
     EquipeModule,
     RedeModule,
     EmailModule,
+    NotificacoesModule,
   ],
   providers: [
     {
