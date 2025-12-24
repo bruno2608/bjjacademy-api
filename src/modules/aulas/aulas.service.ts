@@ -89,7 +89,7 @@ export class AulasService {
     const { startUtc, endUtc } =
       await this.databaseService.getTodayBoundsUtc(tz);
 
-    const aulas = await this.databaseService.query<AulaRow>(
+    const aulas = await this.databaseService.query<AulaRow & { presentes: number }>(
       `
         select
           a.id,
@@ -102,7 +102,13 @@ export class AulasService {
           tt.nome as tipo_treino,
           instrutor.nome_completo as instrutor_nome,
           a.deleted_at,
-          a.academia_id
+          a.academia_id,
+          (
+            select count(*)::int 
+            from presencas p 
+            where p.aula_id = a.id 
+              and p.status = 'PRESENTE'
+          ) as presentes
         from aulas a
         join turmas t on t.id = a.turma_id
         join tipos_treino tt on tt.id = t.tipo_treino_id
@@ -128,6 +134,7 @@ export class AulasService {
       turmaHorarioPadrao: aula.turma_horario_padrao ?? '',
       tipoTreino: aula.tipo_treino,
       instrutorNome: aula.instrutor_nome ?? null,
+      presentes: aula.presentes ?? 0,
     }));
   }
 

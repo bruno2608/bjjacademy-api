@@ -27,4 +27,8 @@ export class AulaDto {
 
   @ApiProperty({ nullable: true })
   instrutorNome: string | null;
+
+  @ApiProperty({ description: 'Número de alunos com presença confirmada' })
+  presentes: number;
 }
+
