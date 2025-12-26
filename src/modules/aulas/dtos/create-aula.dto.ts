@@ -19,6 +19,11 @@ export class CreateAulaDto {
   @IsDateString()
   dataFim: string;
 
+  @ApiPropertyOptional({ description: 'UUID do instrutor (opcional, herda da turma se não informado)' })
+  @IsOptional()
+  @IsUUID()
+  instrutorId?: string;
+
   @ApiPropertyOptional({
     enum: ['AGENDADA', 'ENCERRADA', 'CANCELADA'],
     default: 'AGENDADA',

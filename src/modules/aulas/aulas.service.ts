@@ -340,6 +340,9 @@ export class AulasService {
     await this.ensureDateOrder(dto.dataInicio, dto.dataFim, currentUser.academiaId);
     await this.ensureAulaUnica(dto.turmaId, dto.dataInicio, currentUser.academiaId);
 
+    // Determinar instrutorId: usa o fornecido ou herda da turma
+    const instrutorId = dto.instrutorId ?? null;
+
     const created = await this.databaseService.queryOne<AulaRow>(
       `
         insert into aulas (
@@ -347,8 +350,9 @@ export class AulasService {
           turma_id,
           data_inicio,
           data_fim,
-          status
-        ) values ($1, $2, $3, $4, $5)
+          status,
+          instrutor_id
+        ) values ($1, $2, $3, $4, $5, COALESCE($6, (select instrutor_padrao_id from turmas where id = $2)))
         returning
           id,
           data_inicio,
@@ -367,8 +371,8 @@ export class AulasService {
               END
             ) 
             from tipos_treino where id = (select tipo_treino_id from turmas where id = $2)) as tipo_treino_cor,
-          (select u.nome_completo from usuarios u join turmas t on t.instrutor_padrao_id = u.id where t.id = $2) as instrutor_nome,
-          (select instrutor_padrao_id from turmas where id = $2) as instrutor_id,
+          (select nome_completo from usuarios where id = aulas.instrutor_id) as instrutor_nome,
+          instrutor_id,
           (select to_char(hora_inicio, 'HH24:MI') from turmas where id = $2) as turma_hora_inicio,
           (select dias_semana from turmas where id = $2) as turma_dias_semana,
           qr_token,
@@ -382,6 +386,7 @@ export class AulasService {
         dto.dataInicio,
         dto.dataFim,
         dto.status ?? 'AGENDADA',
+        instrutorId,
       ],
     );
 
@@ -1307,7 +1312,7 @@ export class AulasService {
             END
           ) as tipo_treino_cor,
           instrutor.nome_completo as instrutor_nome,
-          t.instrutor_padrao_id as instrutor_id,
+          COALESCE(a.instrutor_id, t.instrutor_padrao_id) as instrutor_id,
           to_char(t.hora_inicio, 'HH24:MI') as turma_hora_inicio,
           t.dias_semana as turma_dias_semana,
           a.qr_token,
@@ -1317,7 +1322,7 @@ export class AulasService {
         from aulas a
         join turmas t on t.id = a.turma_id
         join tipos_treino tt on tt.id = t.tipo_treino_id
-        left join usuarios instrutor on instrutor.id = t.instrutor_padrao_id
+        left join usuarios instrutor on instrutor.id = COALESCE(a.instrutor_id, t.instrutor_padrao_id)
         where a.id = $1
           and a.academia_id = $2
           and t.deleted_at is null
