@@ -29,6 +29,11 @@ type AlunoBaseRow = {
   matricula_numero: number | null;
   matricula_data_inicio: string | null;
   matricula_data_fim: string | null;
+  data_nascimento: string | null;
+  telefone: string | null;
+  sexo: string | null;
+  faixa_declarada: string | null;
+  status_matricula: string | null;
 };
 
 type GraduacaoRow = {
@@ -140,7 +145,7 @@ export class AlunosService {
             u.id,
             u.nome_completo,
             u.email,
-            u.faixa_atual_slug,
+            COALESCE(u.faixa_atual_slug, u.faixa_declarada) as faixa_atual_slug,
             u.grau_atual,
             v.academia_id,
             '' as academia_nome,
@@ -211,6 +216,10 @@ export class AlunosService {
       matriculaDataFim: alunoBase.matricula_data_fim,
       faixaAtual: alunoBase.faixa_atual_slug,
       grauAtual: alunoBase.grau_atual,
+      faixaDeclarada: alunoBase.faixa_declarada,
+      telefone: alunoBase.telefone,
+      dataNascimento: alunoBase.data_nascimento,
+      sexo: alunoBase.sexo,
       presencasTotais: presencas?.total ?? 0,
     };
   }
@@ -337,14 +346,19 @@ export class AlunosService {
           u.id,
           u.nome_completo,
           u.email,
-          u.faixa_atual_slug,
+          COALESCE(u.faixa_atual_slug, u.faixa_declarada) as faixa_atual_slug,
           u.grau_atual,
           a.id as academia_id,
           a.nome as academia_nome,
           mp.matricula_status,
           mp.numero_matricula as matricula_numero,
           mp.matricula_data_inicio,
-          mp.matricula_data_fim
+          mp.matricula_data_fim,
+          u.data_nascimento::text,
+          u.telefone,
+          u.sexo,
+          u.faixa_declarada,
+          COALESCE(mp.matricula_status, u.status_matricula::text, 'INCOMPLETO') as status_matricula
         from usuarios u
         join vinculos v
           on v.usuario_id = u.id

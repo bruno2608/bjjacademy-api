@@ -63,7 +63,7 @@ export class DashboardService {
         faixa_atual_slug: string | null;
       }>(
         `
-          select faixa_atual_slug
+          select COALESCE(faixa_atual_slug, faixa_declarada) as faixa_atual_slug
           from usuarios
           where id = $1
           limit 1;

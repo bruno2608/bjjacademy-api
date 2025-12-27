@@ -40,14 +40,14 @@ export class EquipeService {
           u.nome_completo,
           u.email,
           u.telefone,
-          u.faixa_atual_slug,
+          COALESCE(u.faixa_atual_slug, u.faixa_declarada) as faixa_atual_slug,
           u.grau_atual,
           u.criado_em,
           array_agg(up.papel ORDER BY up.papel) as papeis
         FROM usuarios u
         JOIN usuarios_papeis up ON u.id = up.usuario_id
         WHERE up.academia_id = $1
-        GROUP BY u.id, u.nome_completo, u.email, u.telefone, u.faixa_atual_slug, u.grau_atual, u.criado_em
+        GROUP BY u.id, u.nome_completo, u.email, u.telefone, u.faixa_atual_slug, u.faixa_declarada, u.grau_atual, u.criado_em
         ORDER BY u.nome_completo
       `,
       [user.academiaId],

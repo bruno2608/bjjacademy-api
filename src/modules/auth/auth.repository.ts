@@ -79,8 +79,7 @@ export class AuthRepository {
       from usuarios u
       join usuarios_papeis up on up.usuario_id = u.id
       join academias a on a.id = up.academia_id
-      where u.email = $1
-        and u.status = 'ACTIVE';
+      where u.email = $1;
     `;
 
     return this.databaseService.query<UserWithRolesAndAcademias>(query, [
@@ -125,7 +124,7 @@ export class AuthRepository {
         u.email,
         u.nome_completo,
         u.status as usuario_status,
-        u.faixa_atual_slug,
+        COALESCE(u.faixa_atual_slug, u.faixa_declarada) as faixa_atual_slug,
         u.grau_atual,
         u.data_nascimento,
         up.papel,

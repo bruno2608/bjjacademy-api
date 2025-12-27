@@ -34,6 +34,18 @@ export class AlunoDetalheDto {
   @ApiProperty({ nullable: true })
   grauAtual: number | null;
 
+  @ApiProperty({ nullable: true })
+  faixaDeclarada: string | null;
+
+  @ApiProperty({ nullable: true })
+  telefone: string | null;
+
+  @ApiProperty({ nullable: true })
+  dataNascimento: string | null;
+
+  @ApiProperty({ nullable: true })
+  sexo: string | null;
+
   @ApiProperty()
   presencasTotais: number;
 }

@@ -14,6 +14,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Documentação Swagger em todos os endpoints
 
 ### Corrigido
+- **COALESCE faixa**: Usar `faixa_declarada` como fallback em endpoints:
+  - `alunos.service.ts` - método `listar()`
+  - `auth.repository.ts` - método `findUserProfileByIdAndAcademia()`
+  - `equipe.service.ts` - método `listarEquipe()`
+  - `dashboard.service.ts` - método `getAlunoDashboard()`
+- **Login PENDENTE**: Removido filtro `status = 'ACTIVE'` em `auth.repository.ts`
 - Parsing de datas no endpoint de pendências
 - Timezone UTC na consulta de pendências
 
