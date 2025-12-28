@@ -46,27 +46,33 @@ sequenceDiagram
     App->>API: POST /auth/signup
     API-->>App: {accessToken, user} (matricula PENDENTE)
     Note over App: Tela "Aguardando aprovação"
-    Staff->>API: PATCH /staff/matriculas/:id {decisao: APROVAR}
-    API-->>Staff: Matrícula aprovada
-    Note over App: Próximo login: matricula ATIVA
+    Staff->>API: PATCH /staff/matriculas/:id {decisao: APROVAR|REJEITAR}
+    API-->>Staff: Decisão processada
+    Note over App: Próximo login: matricula ATIVA ou REJEITADA
 ```
 
-### Happy Path
+### Happy Path (Aprovação)
 
-1. `POST /v1/auth/signup` com:
-   ```json
-   {
-     "nomeCompleto": "Nome do Aluno",
-     "email": "email@example.com",
-     "senha": "Senha123",
-     "codigoAcademia": "ACAD46AF",
-     "aceitouTermos": true
-   }
-   ```
-2. Receber token (usuário já logado)
-3. Verificar `matriculaStatus` em `/auth/me`
-4. Se `PENDENTE`: mostrar tela de espera
-5. Aguardar aprovação do staff
+1. `POST /v1/auth/signup` com dados básicos
+2. Usuário fica em estado `PENDENTE`
+3. Staff acessa perfil do aluno e clica em "Aprovar"
+4. `PATCH /v1/staff/matriculas/:id` com `{decisao: "APROVAR"}`
+5. Usuário torna-se `ATIVO`
+
+### Fluxo de Rejeição
+
+1. Staff acessa perfil do aluno e clica em "Rejeitar"
+2. Modal de confirmação é exibido
+3. `PATCH /v1/staff/matriculas/:id` com `{decisao: "REJEITAR"}`
+4. Usuário torna-se `REJEITADO` e vê tela de bloqueio personalizada
+
+### Fluxo de Remoção (Irreversível)
+
+1. Staff acessa perfil de um aluno `ATIVO`
+2. Clica em "Remover da Academia"
+3. Modal de alerta fatal é exibido
+4. `DELETE /v1/alunos/:id`
+5. Aluno é desvinculado e registro de matrícula encerrado
 
 ### Erros Comuns
 

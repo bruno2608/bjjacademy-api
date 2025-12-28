@@ -5,7 +5,7 @@ Esquema usado pela API v1. Scripts: `sql/001-init-schema.sql` (DDL), `sql/003-se
 ## Tabelas principais
 - **faixas**: `slug` PK, `nome`, `categoria`, `ordem`, `graus_maximos`.
 - **academias**: `id` PK, `nome`, `codigo_convite`, `ativo`, `criado_em`.
-- **usuarios**: `id` PK, `email` unique, `senha_hash`, `nome_completo`, `status` (`INVITED/ACTIVE/INACTIVE`), `faixa_atual_slug` FK, `grau_atual`, `aceitou_termos`, `criado_em`.
+- **usuarios**: `id` PK, `email` unique, `senha_hash`, `nome_completo`, `telefone`, `data_nascimento`, `sexo`, `status` (`INVITED/ACTIVE/INACTIVE`), `faixa_atual_slug` FK, `grau_atual`, `aceitou_termos`, `criado_em`.
 - **usuarios_papeis**: `usuario_id` FK, `academia_id` FK, `papel` (`ALUNO/INSTRUTOR/PROFESSOR/ADMIN/TI`), `criado_em`, unique `(usuario_id, academia_id, papel)`.
 - **convites**: `academia_id` FK, `email`, `token_hash` unique, `papel_sugerido`, `expires_at`, `used_at`.
 - **regras_graduacao**: `academia_id` FK, `faixa_slug` FK, `aulas_minimas`, `tempo_minimo_meses`, `meta_aulas_no_grau`, unique `(academia_id, faixa_slug)`.
