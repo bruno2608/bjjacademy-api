@@ -1227,9 +1227,19 @@ export class AulasService {
     query: ListAulasQueryDto,
     currentUser: CurrentUser,
   ): Promise<{ where: string[]; params: any[] }> {
-    const where = ['a.academia_id = $1', 't.deleted_at is null'];
-    const params: any[] = [currentUser.academiaId];
-    let idx = 2;
+    const where: string[] = ['t.deleted_at is null'];
+    const params: any[] = [];
+    let idx = 1;
+
+    if (query.rede) {
+      where.push(`a.academia_id IN (SELECT academia_id FROM matriculas WHERE usuario_id = $${idx} AND status = 'ATIVA')`);
+      params.push(currentUser.id);
+      idx += 1;
+    } else {
+      where.push(`a.academia_id = $${idx}`);
+      params.push(currentUser.academiaId);
+      idx += 1;
+    }
 
     const onlyDeleted = !!query.onlyDeleted;
     const includeDeleted = !!query.includeDeleted;
@@ -1293,6 +1303,7 @@ export class AulasService {
     academiaId: string,
     opts?: { includeDeleted?: boolean },
   ): Promise<AulaRow | null> {
+    const tz = this.databaseService.getAppTimezone();
     return this.databaseService.queryOne<AulaRow>(
       `
         select

@@ -50,4 +50,16 @@ export class ListAulasQueryDto {
     return false;
   })
   onlyDeleted?: boolean;
+  @ApiPropertyOptional({
+    description: 'Filtra aulas de toda a rede de academias onde o usuario tem matricula',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') return value.toLowerCase() === 'true';
+    return false;
+  })
+  rede?: boolean;
 }

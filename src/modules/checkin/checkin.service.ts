@@ -54,26 +54,29 @@ export class CheckinService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   private presencaAuditColumnsPromise?: Promise<PresencaAuditColumns>;
-
   async listarDisponiveis(
     currentUser: CurrentUser,
   ): Promise<CheckinDisponivelDto[]> {
-    await this.ensureAlunoComMatriculaAtiva(
-      currentUser.id,
-      currentUser.academiaId,
+    // Validar se o usuario tem pelo menos uma matricula ativa na rede
+    const hasAnyMatricula = await this.databaseService.queryOne<{ id: string }>(
+      `SELECT id FROM matriculas WHERE usuario_id = $1 AND status = 'ATIVA' LIMIT 1`,
+      [currentUser.id]
     );
 
-    // Buscar configuração da janela de check-in da academia
+    if (!hasAnyMatricula) {
+      throw new ForbiddenException('Voce nao possui nenhuma matricula ativa nesta rede de academias');
+    }
+
+    // Buscar configuracao da janela de check-in (usa a da academia atual ou padrao)
     const configResult = await this.databaseService.query<{
       checkin_window_before_min: number;
-      checkin_window_after_min: number;
     }>(
-      `SELECT checkin_window_before_min, checkin_window_after_min FROM academias WHERE id = $1`,
+      `SELECT checkin_window_before_min FROM academias WHERE id = $1`,
       [currentUser.academiaId],
     );
-    const windowBefore = configResult[0]?.checkin_window_before_min ?? 30;
-    const windowAfter = configResult[0]?.checkin_window_after_min ?? 60;
+    const windowBefore = configResult[0]?.checkin_window_before_min ?? 60;
 
+    const tz = this.databaseService.getAppTimezone();
     const aulas = await this.databaseService.query<CheckinDisponivelRow>(
       `
         select
@@ -100,17 +103,20 @@ export class CheckinService {
         left join usuarios instrutor on instrutor.id = COALESCE(a.instrutor_id, t.instrutor_padrao_id)
         left join presencas p
           on p.aula_id = a.id
-         and p.aluno_id = $2
+         and p.aluno_id = $1
          and p.academia_id = a.academia_id
-        where a.academia_id = $1
-          and a.data_inicio >= (NOW() - INTERVAL '1 minute' * $3)
-          and a.data_inicio <= (NOW() + INTERVAL '1 minute' * $4)
+        where a.data_inicio <= (NOW() + INTERVAL '1 minute' * $2)
+          and a.data_fim >= (NOW() - INTERVAL '10 minutes') -- Margem de seguranca para aulas acabando
           and a.status <> 'CANCELADA'
           and a.deleted_at is null
           and t.deleted_at is null
+          and a.academia_id IN (
+            SELECT academia_id FROM matriculas 
+            WHERE usuario_id = $1 AND status = 'ATIVA'
+          )
         order by a.data_inicio asc;
       `,
-      [currentUser.academiaId, currentUser.id, windowAfter, windowBefore],
+      [currentUser.id, windowBefore],
     );
 
     return aulas.map((row) => ({
@@ -147,19 +153,21 @@ export class CheckinService {
         select id, academia_id, status, qr_token, qr_expires_at, deleted_at
         from aulas
         where id = $1
-          and academia_id = $2
         limit 1;
       `,
-      [dto.aulaId, currentUser.academiaId],
+      [dto.aulaId],
     );
 
     if (!aula) {
       throw new NotFoundException('Aula nao encontrada');
     }
 
-    if (aula.academia_id !== currentUser.academiaId) {
-      throw new ForbiddenException('Aula nao pertence a academia do usuario');
-    }
+    await this.ensureAlunoComMatriculaAtiva(
+      currentUser.id,
+      aula.academia_id,
+    );
+
+
 
     if (aula.deleted_at) {
       throw new UnprocessableEntityException('Aula nao disponivel para check-in');
@@ -169,12 +177,12 @@ export class CheckinService {
       throw new UnprocessableEntityException('Aula cancelada para check-in');
     }
 
-    const jaExiste = await this.databaseService.queryOne<{
-      id: string;
-      aprovacao_status?: string;
-      status?: string;
-    }>(
-      `
+      const jaExiste = await this.databaseService.queryOne<{
+        id: string;
+        aprovacao_status?: string;
+        status?: string;
+      }>(
+        `
         select id
         from presencas
         where aula_id = $1
@@ -182,8 +190,8 @@ export class CheckinService {
           and academia_id = $3
         limit 1;
       `,
-      [dto.aulaId, currentUser.id, currentUser.academiaId],
-    );
+        [dto.aulaId, currentUser.id, aula.academia_id],
+      );
 
     if (jaExiste) {
       throw new UnprocessableEntityException(
@@ -245,7 +253,7 @@ export class CheckinService {
           returning id, aula_id, aluno_id, status, origem, criado_em, aprovacao_status${auditSelect};
         `,
         [
-          currentUser.academiaId,
+          aula.academia_id,
           dto.aulaId,
           currentUser.id,
           status,
