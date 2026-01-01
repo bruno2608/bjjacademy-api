@@ -37,6 +37,13 @@ export class AcademiasController {
     return this.academiaService.listAcademias();
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Retorna detalhes de uma academia (TI only)' })
+  @ApiOkResponse({ type: AcademiaResponseDto })
+  async getById(@Param('id') id: string): Promise<AcademiaResponseDto> {
+    return this.academiaService.getById(id);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Cria uma nova academia (TI only)' })
   @ApiCreatedResponse({ type: AcademiaResponseDto })

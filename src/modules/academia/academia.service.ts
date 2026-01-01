@@ -20,7 +20,6 @@ export class AcademiaService {
     const academia = await this.databaseService.queryOne<{
       id: string;
       nome: string;
-      codigo: string | null;
       codigo_convite: string | null;
       ativo: boolean;
       endereco: string | null;
@@ -31,7 +30,7 @@ export class AcademiaService {
     }>(
       `
         SELECT 
-          id, nome, codigo, codigo_convite, ativo,
+          id, nome, codigo_convite, ativo,
           endereco, telefone, email, logo_url, criado_em
         FROM academias
         WHERE id = $1
@@ -46,7 +45,7 @@ export class AcademiaService {
     return {
       id: academia.id,
       nome: academia.nome,
-      codigo: academia.codigo,
+      codigo: academia.codigo_convite,
       codigoConvite: academia.codigo_convite,
       ativo: academia.ativo,
       endereco: academia.endereco,
@@ -107,11 +106,10 @@ export class AcademiaService {
 
   async getCodigos(user: CurrentUser): Promise<AcademiaCodigosDto> {
     const academia = await this.databaseService.queryOne<{
-      codigo: string | null;
       codigo_convite: string | null;
       criado_em: string;
     }>(
-      `SELECT codigo, codigo_convite, criado_em FROM academias WHERE id = $1`,
+      `SELECT codigo_convite, criado_em FROM academias WHERE id = $1`,
       [user.academiaId],
     );
 
@@ -120,7 +118,7 @@ export class AcademiaService {
     }
 
     return {
-      codigoSignup: academia.codigo || '',
+      codigoSignup: academia.codigo_convite || '',
       codigoConvite: academia.codigo_convite,
       criadoEm: academia.criado_em,
     };
@@ -128,8 +126,8 @@ export class AcademiaService {
 
   async rotacionarCodigo(user: CurrentUser): Promise<RotacionarCodigoResponseDto> {
     // Get current code
-    const atual = await this.databaseService.queryOne<{ codigo: string | null }>(
-      `SELECT codigo FROM academias WHERE id = $1`,
+    const atual = await this.databaseService.queryOne<{ codigo_convite: string | null }>(
+      `SELECT codigo_convite FROM academias WHERE id = $1`,
       [user.academiaId],
     );
 
@@ -137,25 +135,25 @@ export class AcademiaService {
       throw new NotFoundException('Academia nao encontrada');
     }
 
-    const codigoAnterior = atual.codigo || '';
+    const codigoAnterior = atual.codigo_convite || '';
 
-    // Generate new code: ACAD + 8 random alphanumeric chars
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No 0, O, 1, I for clarity
-    let novoCodigo = 'ACAD';
-    for (let i = 0; i < 8; i++) {
+    // Generate new code: DOJ- + 6 random alphanumeric chars (formato convite)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let novoCodigo = 'DOJ-';
+    for (let i = 0; i < 6; i++) {
       novoCodigo += chars.charAt(Math.floor(Math.random() * chars.length));
     }
 
-    // Update
+    // Update codigo_convite
     await this.databaseService.query(
-      `UPDATE academias SET codigo = $1 WHERE id = $2`,
+      `UPDATE academias SET codigo_convite = $1 WHERE id = $2`,
       [novoCodigo, user.academiaId],
     );
 
     return {
       codigoAnterior,
       codigoNovo: novoCodigo,
-      message: 'Código rotacionado com sucesso. O código anterior não funcionará mais.',
+      message: 'Código de convite rotacionado com sucesso. O código anterior não funcionará mais.',
     };
   }
 
@@ -242,7 +240,6 @@ export class AcademiaService {
     const academia = await this.databaseService.queryOne<{
       id: string;
       nome: string;
-      codigo: string | null;
       codigo_convite: string | null;
       ativo: boolean;
       endereco: string | null;
@@ -251,7 +248,7 @@ export class AcademiaService {
       logo_url: string | null;
       criado_em: string;
     }>(
-      `SELECT id, nome, codigo, codigo_convite, ativo, endereco, telefone, email, logo_url, criado_em FROM academias WHERE id = $1`,
+      `SELECT id, nome, codigo_convite, ativo, endereco, telefone, email, logo_url, criado_em FROM academias WHERE id = $1`,
       [id],
     );
 
@@ -262,7 +259,7 @@ export class AcademiaService {
     return {
       id: academia.id,
       nome: academia.nome,
-      codigo: academia.codigo,
+      codigo: academia.codigo_convite,
       codigoConvite: academia.codigo_convite,
       ativo: academia.ativo,
       endereco: academia.endereco,

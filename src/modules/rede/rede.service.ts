@@ -84,7 +84,7 @@ export class RedeService {
     const academias = await this.databaseService.query<{
       id: string;
       nome: string;
-      codigo: string | null;
+      codigo_convite: string | null;
       ativo: boolean;
       endereco: string | null;
       telefone: string | null;
@@ -93,7 +93,7 @@ export class RedeService {
     }>(
       `
         SELECT 
-          a.id, a.nome, a.codigo, a.ativo, a.endereco, a.telefone, a.criado_em,
+          a.id, a.nome, a.codigo_convite, a.ativo, a.endereco, a.telefone, a.criado_em,
           (SELECT COUNT(*) FROM matriculas m WHERE m.academia_id = a.id AND m.status = 'ATIVA') as total_alunos
         FROM academias a
         WHERE a.rede_id = $1
@@ -105,7 +105,7 @@ export class RedeService {
     return academias.map((a) => ({
       id: a.id,
       nome: a.nome,
-      codigo: a.codigo,
+      codigo: a.codigo_convite,
       ativo: a.ativo,
       endereco: a.endereco,
       telefone: a.telefone,
@@ -182,7 +182,7 @@ export class RedeService {
       nome: string;
       rede_id: string | null;
     }>(
-      `SELECT id, nome, rede_id FROM academias WHERE UPPER(codigo) = UPPER($1)`,
+      `SELECT id, nome, rede_id FROM academias WHERE UPPER(codigo_convite) = UPPER($1)`,
       [codigoAcademia],
     );
 
@@ -269,6 +269,271 @@ export class RedeService {
       nome,
       academiaVinculada: academia.nome,
       message: `Rede "${nome}" criada com sucesso. "${academia.nome}" é a primeira filial.`,
+    };
+  }
+
+  /**
+   * Desvincula uma academia da rede
+   */
+  async desvincularAcademia(
+    academiaId: string,
+    user: CurrentUser,
+  ): Promise<{ id: string; message: string }> {
+    // Check user is network admin
+    const redeAdmin = await this.databaseService.queryOne<{ rede_id: string }>(
+      `SELECT rede_id FROM redes_admins WHERE usuario_id = $1 LIMIT 1`,
+      [user.id],
+    );
+
+    if (!redeAdmin) {
+      throw new ForbiddenException('Você não é administrador de nenhuma rede');
+    }
+
+    // Check academy belongs to this network
+    const academia = await this.databaseService.queryOne<{ 
+      id: string; 
+      nome: string;
+      rede_id: string | null 
+    }>(
+      `SELECT id, nome, rede_id FROM academias WHERE id = $1`,
+      [academiaId],
+    );
+
+    if (!academia) {
+      throw new NotFoundException('Academia não encontrada');
+    }
+
+    if (academia.rede_id !== redeAdmin.rede_id) {
+      throw new ForbiddenException('Esta academia não pertence à sua rede');
+    }
+
+    // Desvincular
+    await this.databaseService.query(
+      `UPDATE academias SET rede_id = NULL WHERE id = $1`,
+      [academiaId],
+    );
+
+    return {
+      id: academiaId,
+      message: `Academia "${academia.nome}" desvinculada da rede`,
+    };
+  }
+
+  /**
+   * Retorna detalhes de uma academia da rede
+   */
+  async getAcademiaById(
+    academiaId: string,
+    user: CurrentUser,
+  ): Promise<AcademiaRedeDto> {
+    // Check user is network admin
+    const redeAdmin = await this.databaseService.queryOne<{ rede_id: string }>(
+      `SELECT rede_id FROM redes_admins WHERE usuario_id = $1 LIMIT 1`,
+      [user.id],
+    );
+
+    if (!redeAdmin) {
+      throw new ForbiddenException('Você não é administrador de nenhuma rede');
+    }
+
+    const academia = await this.databaseService.queryOne<{
+      id: string;
+      nome: string;
+      codigo_convite: string | null;
+      ativo: boolean;
+      endereco: string | null;
+      telefone: string | null;
+      criado_em: string;
+      total_alunos: string;
+    }>(
+      `
+        SELECT 
+          a.id, a.nome, a.codigo_convite, a.ativo, a.endereco, a.telefone, a.criado_em,
+          (SELECT COUNT(*) FROM matriculas m WHERE m.academia_id = a.id AND m.status = 'ATIVA') as total_alunos
+        FROM academias a
+        WHERE a.id = $1 AND a.rede_id = $2
+      `,
+      [academiaId, redeAdmin.rede_id],
+    );
+
+    if (!academia) {
+      throw new NotFoundException('Academia não encontrada ou não pertence à sua rede');
+    }
+
+    return {
+      id: academia.id,
+      nome: academia.nome,
+      codigo: academia.codigo_convite,
+      ativo: academia.ativo,
+      endereco: academia.endereco,
+      telefone: academia.telefone,
+      totalAlunos: parseInt(academia.total_alunos, 10),
+      criadoEm: academia.criado_em,
+    };
+  }
+
+  /**
+   * Atualiza dados da rede
+   */
+  async updateRede(
+    dto: { nome: string },
+    user: CurrentUser,
+  ): Promise<RedeResponseDto> {
+    // Check user is network admin
+    const redeAdmin = await this.databaseService.queryOne<{ rede_id: string }>(
+      `SELECT rede_id FROM redes_admins WHERE usuario_id = $1 LIMIT 1`,
+      [user.id],
+    );
+
+    if (!redeAdmin) {
+      throw new ForbiddenException('Você não é administrador de nenhuma rede');
+    }
+
+    if (!dto.nome || dto.nome.trim().length < 2) {
+      throw new BadRequestException('Nome da rede deve ter pelo menos 2 caracteres');
+    }
+
+    await this.databaseService.query(
+      `UPDATE redes SET nome = $1 WHERE id = $2`,
+      [dto.nome.trim(), redeAdmin.rede_id],
+    );
+
+    return this.getRede(user);
+  }
+
+  /**
+   * Lista usuários elegíveis para serem gestores da rede
+   * (ADMINs de academias da rede, exceto o admin atual)
+   */
+  async listarGestoresElegiveis(
+    user: CurrentUser,
+  ): Promise<{ id: string; nome: string; email: string; academiaNome: string }[]> {
+    // Check user is network admin
+    const redeAdmin = await this.databaseService.queryOne<{ rede_id: string }>(
+      `SELECT rede_id FROM redes_admins WHERE usuario_id = $1 LIMIT 1`,
+      [user.id],
+    );
+
+    if (!redeAdmin) {
+      throw new ForbiddenException('Você não é administrador de nenhuma rede');
+    }
+
+    // Get ADMINs from academies in the network (except current admin)
+    const elegibles = await this.databaseService.query<{
+      id: string;
+      nome: string;
+      email: string;
+      academia_nome: string;
+    }>(
+      `
+        SELECT DISTINCT u.id, u.nome, u.email, a.nome as academia_nome
+        FROM usuarios u
+        JOIN usuarios_papeis up ON up.usuario_id = u.id AND up.papel = 'ADMIN'
+        JOIN academias a ON a.id = up.academia_id
+        WHERE a.rede_id = $1 AND u.id != $2
+        ORDER BY u.nome
+      `,
+      [redeAdmin.rede_id, user.id],
+    );
+
+    return elegibles.map((e) => ({
+      id: e.id,
+      nome: e.nome,
+      email: e.email,
+      academiaNome: e.academia_nome,
+    }));
+  }
+
+  /**
+   * Transfere a gestão da rede para outro usuário
+   */
+  async transferirGestor(
+    novoAdminId: string,
+    user: CurrentUser,
+  ): Promise<{ message: string; novoAdminNome: string }> {
+    // Check user is network admin
+    const redeAdmin = await this.databaseService.queryOne<{ rede_id: string }>(
+      `SELECT rede_id FROM redes_admins WHERE usuario_id = $1 LIMIT 1`,
+      [user.id],
+    );
+
+    if (!redeAdmin) {
+      throw new ForbiddenException('Você não é administrador de nenhuma rede');
+    }
+
+    // Verify new admin is eligible
+    const novoAdmin = await this.databaseService.queryOne<{
+      id: string;
+      nome: string;
+    }>(
+      `
+        SELECT u.id, u.nome
+        FROM usuarios u
+        JOIN usuarios_papeis up ON up.usuario_id = u.id AND up.papel = 'ADMIN'
+        JOIN academias a ON a.id = up.academia_id
+        WHERE a.rede_id = $1 AND u.id = $2
+        LIMIT 1
+      `,
+      [redeAdmin.rede_id, novoAdminId],
+    );
+
+    if (!novoAdmin) {
+      throw new BadRequestException('Usuário não é um ADMIN elegível da rede');
+    }
+
+    // Transfer: update redes_admins
+    await this.databaseService.query(
+      `UPDATE redes_admins SET usuario_id = $1 WHERE rede_id = $2 AND usuario_id = $3`,
+      [novoAdminId, redeAdmin.rede_id, user.id],
+    );
+
+    return {
+      message: `Gestão da rede transferida para ${novoAdmin.nome}`,
+      novoAdminNome: novoAdmin.nome,
+    };
+  }
+
+  /**
+   * Verifica impacto antes de desativar academia (T6)
+   */
+  async checkImpactoDesativacao(
+    academiaId: string,
+    user: CurrentUser,
+  ): Promise<{ totalAlunos: number; requiresConfirmation: boolean; message: string }> {
+    // Check user is network admin
+    const redeAdmin = await this.databaseService.queryOne<{ rede_id: string }>(
+      `SELECT rede_id FROM redes_admins WHERE usuario_id = $1 LIMIT 1`,
+      [user.id],
+    );
+
+    if (!redeAdmin) {
+      throw new ForbiddenException('Você não é administrador de nenhuma rede');
+    }
+
+    // Check academy belongs to network
+    const academia = await this.databaseService.queryOne<{ id: string; rede_id: string | null }>(
+      `SELECT id, rede_id FROM academias WHERE id = $1`,
+      [academiaId],
+    );
+
+    if (!academia || academia.rede_id !== redeAdmin.rede_id) {
+      throw new NotFoundException('Academia não encontrada ou não pertence à sua rede');
+    }
+
+    // Count active students
+    const result = await this.databaseService.queryOne<{ total: string }>(
+      `SELECT COUNT(*) as total FROM matriculas WHERE academia_id = $1 AND status = 'ATIVA'`,
+      [academiaId],
+    );
+
+    const totalAlunos = parseInt(result?.total || '0', 10);
+
+    return {
+      totalAlunos,
+      requiresConfirmation: totalAlunos > 0,
+      message: totalAlunos > 0 
+        ? `${totalAlunos} aluno(s) serão afetados pela desativação` 
+        : 'Nenhum aluno ativo será afetado',
     };
   }
 }

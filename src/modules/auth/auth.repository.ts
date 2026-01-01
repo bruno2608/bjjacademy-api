@@ -220,9 +220,9 @@ export class AuthRepository {
       nome: string;
       codigo: string;
     }>(
-      `SELECT id, nome, COALESCE(codigo, codigo_convite) as codigo 
+      `SELECT id, nome, codigo_convite as codigo 
        FROM academias 
-       WHERE UPPER(codigo) = UPPER($1) OR UPPER(codigo_convite) = UPPER($1) 
+       WHERE UPPER(codigo_convite) = UPPER($1) 
        LIMIT 1`,
       [codigo],
     );
