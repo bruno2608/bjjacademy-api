@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums/user-role.enum';
+import { UserMatriculaDto } from './user-matricula.dto';
 
 export class TokenUserDto {
   @ApiProperty()
@@ -19,4 +20,7 @@ export class TokenUserDto {
 
   @ApiProperty()
   academiaId: string;
+
+  @ApiProperty({ type: [UserMatriculaDto], required: false })
+  matriculas?: UserMatriculaDto[];
 }

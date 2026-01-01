@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums/user-role.enum';
+import { UserMatriculaDto } from './user-matricula.dto';
 
 export class MeResponseDto {
   @ApiProperty()
@@ -40,4 +41,7 @@ export class MeResponseDto {
 
   @ApiProperty({ description: 'True if data_nascimento is set' })
   profileComplete: boolean;
+
+  @ApiPropertyOptional({ type: () => [UserMatriculaDto] })
+  matriculas?: UserMatriculaDto[];
 }

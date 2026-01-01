@@ -99,6 +99,7 @@ export class AuthService {
         role: payload.role,
         roles,
         academiaId: payload.academiaId,
+        matriculas: this.formatMatriculas(usuarios),
       },
     };
   }
@@ -122,6 +123,10 @@ export class AuthService {
       // no-op por enquanto; endpoint ainda retorna os dados
     }
 
+    const allRows = await this.authRepository.findUserWithRolesAndAcademiasByUserId(
+      currentUser.id,
+    );
+
     return {
       id: primaryRow.usuario_id,
       nome: primaryRow.nome_completo,
@@ -136,6 +141,7 @@ export class AuthService {
       matriculaDataInicio: primaryRow.matricula_data_inicio,
       matriculaDataFim: primaryRow.matricula_data_fim,
       profileComplete: primaryRow.data_nascimento !== null,
+      matriculas: this.formatMatriculas(allRows),
     };
   }
 
@@ -469,6 +475,7 @@ export class AuthService {
         role: payload.role,
         roles,
         academiaId: payload.academiaId,
+        matriculas: this.formatMatriculas(usuarios),
       },
     };
   }
@@ -704,6 +711,29 @@ export class AuthService {
     });
 
     return token;
+  }
+
+  private formatMatriculas(usuarios: any[]): any[] {
+    const academyMap = new Map<string, any>();
+
+    for (const u of usuarios) {
+      const academiaId = u.academia_id;
+      if (!academyMap.has(academiaId)) {
+        academyMap.set(academiaId, {
+          academiaId,
+          academiaNome: u.academia_nome,
+          status: 'ATIVO', // TODO: buscar de matriculas se necessário
+          papel: u.papel,
+        });
+      } else {
+        // Se já existe, pega o papel de maior prioridade
+        const existing = academyMap.get(academiaId);
+        const roles = [existing.papel, u.papel];
+        existing.papel = this.getPrimaryRole(roles as UserRole[]);
+      }
+    }
+
+    return Array.from(academyMap.values());
   }
 
   /**
