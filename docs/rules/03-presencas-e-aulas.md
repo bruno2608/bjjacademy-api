@@ -186,6 +186,87 @@ POST /v1/aulas/:id/encerrar
 
 ---
 
+## Cancelar Aula (com Histórico)
+
+### Endpoint
+
+```
+POST /v1/aulas/:id/cancel
+```
+
+### Payload
+
+```json
+{
+  "motivo": "emergencia_instrutor",
+  "observacao": "Instrutor precisou sair por motivos de saúde",
+  "notificarAlunos": true
+}
+```
+
+### Efeitos
+
+1. Muda `status` para `CANCELADA`
+2. Preenche `cancelamento_motivo`, `cancelamento_observacao`
+3. Preenche `cancelado_por` com UUID do staff e `cancelado_em` com `NOW()`
+4. Limpa `qr_token` e `qr_expires_at`
+5. Se `notificarAlunos=true`: dispara notificação assíncrona para todos alunos ativos da academia
+
+### Validações
+
+| Situação | Resultado |
+|----------|-----------|
+| Aula já `ENCERRADA` | ❌ `409 Conflict` |
+| Aula com presenças `PRESENTE` | ❌ `409 Conflict` |
+| Aula já `CANCELADA` | ✅ Idempotente (200) |
+
+### Resposta de Erro
+
+```json
+{
+  "statusCode": 409,
+  "error": "Conflict",
+  "message": "Aula já possui alunos com presença registrada"
+}
+```
+
+---
+
+## Reabrir Aula (Staff Only)
+
+### Endpoint
+
+```
+POST /v1/aulas/:id/reopen
+```
+
+### Efeitos
+
+1. Muda `status` de volta para `AGENDADA`
+2. Limpa `cancelamento_motivo`, `cancelamento_observacao`, `cancelado_por`, `cancelado_em`
+
+### Validações
+
+| Situação | Resultado |
+|----------|-----------|
+| Aula não está `CANCELADA` | ❌ `409 Conflict` |
+| Aula `ENCERRADA` | ❌ `409 Conflict` |
+
+### Resposta
+
+```json
+{
+  "id": "uuid",
+  "status": "AGENDADA",
+  "cancelamentoMotivo": null,
+  "cancelamentoObservacao": null,
+  "canceladoPor": null,
+  "canceladoEm": null
+}
+```
+
+---
+
 ## QR Code
 
 ### Gerar

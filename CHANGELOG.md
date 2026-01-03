@@ -12,6 +12,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Endpoint `GET /config/motivos-cancelamento` para listar motivos
   - Tabela `motivos_cancelamento` com suporte a motivos por academia
   - SQL `026-motivos-cancelamento.sql` com seed inicial
+- **Cancelamento de Aula (02/01/2026)**:
+  - Endpoint `POST /aulas/:id/cancel` para realizar o cancelamento
+  - Endpoint `POST /aulas/:id/reopen` para reabrir aula (Staff only)
+  - Endpoint `GET /config/motivos-cancelamento-aula` específico para aulas
+  - Persistência de `cancelamento_motivo`, `cancelamento_observacao`, `cancelado_por` e `cancelado_em` na tabela `aulas`
+  - Validações: impede cancelamento de aulas já encerradas ou com presenças registradas
+- **Notificações (02/01/2026)**:
+  - Novo tipo `AULA_CANCELADA` no `TipoNotificacao`
+  - Helper `notificarAulaCancelada` no `NotificacoesService`
+  - Disparo assíncrono para todos os alunos ativos da academia ao cancelar uma aula
 - Re-decisão de presença (`PRESENTE` → `FALTA`) via `PATCH /presencas/:id/decisao`
 - Coluna unificada `observacao` em `presencas` (substitui `decisao_observacao` e `aprovacao_observacao`)
 - Endpoint `/presencas/pendencias` com filtros `from`/`to`
